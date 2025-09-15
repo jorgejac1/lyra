@@ -4,16 +4,40 @@ import { transformReactivity } from "./transform/reactivity";
 import type { CompileOptions, CompileResult } from "./types";
 
 /**
- * Compile a Lyra TS/TSX module.
+ * Compile a Lyra TSX module.
  *
- * Pipeline:
- *  1) Parse to {@link ts.SourceFile}.
- *  2) Run a11y static checks (emit diagnostics).
- *  3) Apply directive transforms (`on:*`, `class:*` → `data-*`).
- *  4) Print to string (no source maps yet).
+ * Steps performed:
+ *  1. Parse the provided source code into a TypeScript SourceFile.
+ *  2. Run static accessibility (a11y) checks on the AST.
+ *  3. Apply Lyra directive transforms (e.g. `on:*`, `class:*` → `data-*`).
+ *  4. Print the transformed AST back to a string of code.
  *
- * @param options - Compile options (filename, source, dev flags, a11y level).
- * @returns Transformed code, diagnostics, and meta info.
+ * @param options - The {@link CompileOptions} controlling how compilation runs:
+ * - `filename`: the file path for context and diagnostics.
+ * - `source`: the TSX source code string.
+ * - `dev`: whether dev-friendly behavior should be enabled (default: `true`).
+ * - `generateSourceMap`: whether to generate source maps (default: `true`, not yet implemented).
+ * - `a11yLevel`: strictness of accessibility checks (`"strict" | "warn" | "off"`).
+ *
+ * @returns A {@link CompileResult} object containing:
+ * - `code`: the transformed TSX source as a string.
+ * - `map`: a placeholder for source maps (currently `null`).
+ * - `diagnostics`: any diagnostics produced by the a11y checks.
+ * - `meta`: metadata about the compilation (symbols, islands, error counts, etc).
+ *
+ * @example
+ * ```ts
+ * import { compile } from "@lyra/compiler";
+ *
+ * const result = compile({
+ *   filename: "Component.lyra.tsx",
+ *   source: "<button on:click={fn}></button>",
+ *   a11yLevel: "strict"
+ * });
+ *
+ * console.log(result.code);
+ * // => <button data-on-click={fn}></button>
+ * ```
  */
 export function compile(options: CompileOptions): CompileResult {
   const {
@@ -24,38 +48,35 @@ export function compile(options: CompileOptions): CompileResult {
     a11yLevel = "strict",
   } = options;
 
-  const isTSX =
-    filename.endsWith(".tsx") ||
-    filename.endsWith(".lyra.tsx") ||
-    filename.endsWith(".jsx");
-
-  // 1) Parse
+  // Create a TSX source file AST
   const sf = ts.createSourceFile(
     filename,
     source,
     ts.ScriptTarget.Latest,
-    /*setParentNodes*/ true,
-    isTSX ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+    true,
+    ts.ScriptKind.TSX,
   );
 
-  // 2) A11y checks
+  // Run a11y checks on the AST
   const diags = runA11yChecks(sf, filename, a11yLevel);
 
-  // 3) Transform directives
+  // Transform AST: rewrite Lyra directives
   const result = ts.transform<ts.SourceFile>(sf, [
     (ctx): ts.Transformer<ts.SourceFile> =>
       (node: ts.SourceFile) =>
         transformReactivity(node, ctx),
   ]);
 
-  // 4) Print
+  // Print the transformed AST back to source code
   const printer = ts.createPrinter({
     newLine: ts.NewLineKind.LineFeed,
     removeComments: false,
   });
   const transformed = result.transformed[0] as ts.SourceFile;
   const code = printer.printFile(transformed);
-  const map: unknown | null = null; // TODO: add source maps later
+
+  // Placeholder: source maps not yet supported
+  const map: unknown | null = null;
 
   result.dispose();
 
