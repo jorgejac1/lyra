@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions & Support (Discussions)
+    url: https://github.com/jorgejac1/lyra/discussions/categories/q-a
+    about: Ask questions and get community support here.
+  - name: 💡 Ideas & Proposals (Discussions)
+    url: https://github.com/jorgejac1/lyra/discussions/categories/ideas
+    about: Share feature ideas and get feedback before filing an issue.
