@@ -1,6 +1,6 @@
 # Lyra
 
-[![CI](https://github.com/<your-username>/<your-repo>/actions/workflows/ci.yml/badge.svg)](https://github.com/<your-username>/<your-repo>/actions)
+[![CI](https://github.com/jorgejac1/lyra/actions/workflows/ci.yml/badge.svg)](https://github.com/jorgejac1/lyra/actions)
 [![npm version](https://img.shields.io/npm/v/@lyra/compiler.svg)](https://www.npmjs.com/package/@lyra/compiler)
 [![Coverage](https://img.shields.io/codecov/c/github/<your-username>/<your-repo>)](https://codecov.io/gh/<your-username>/<your-repo>)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
@@ -37,16 +37,18 @@ This monorepo includes:
 Clone the repo and install dependencies:
 
 ```bash
-git clone https://github.com/<your-username>/<your-repo>.git
+git clone https://github.com/jorgejac1/lyra.git
 cd <your-repo>
 npm install
 ```
 
 ## 🚀 Run the example app
+
 ```bash
 cd examples/todos
 npm run dev
 ```
+
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ## 🛠 Development Workflow
@@ -54,17 +56,21 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 - Branch from `main`.
 - Use **clear commit messages** (`feat:`, `fix:`, `docs:`, etc.).
 - Make sure your code is linted and formatted:
+
   ```bash
   npm run lint
   npm run lint:fix
 
+  ```
 
 - Add or update **unit tests** when fixing or adding features.
 - Run the test suite with coverage:
+
   ```bash
   npm run test
 
   ## 🤝 Contributing
+  ```
 
 Please see our [Contributing Guide](./CONTRIBUTING.md) for setup instructions, coding standards, and how to submit pull requests.
 
