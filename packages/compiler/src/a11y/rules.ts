@@ -3,7 +3,19 @@ import type { Diagnostic } from "../types";
 
 /**
  * Run static accessibility rules on a TSX source file.
- * Currently implements LYRA_A11Y_001: common interactive controls must have an accessible name.
+ *
+ * Currently implements rule **LYRA_A11Y_001**:
+ * Ensures common interactive controls (`<input>`, `<select>`, `<textarea>`, `<button>`)
+ * have an accessible name attribute (`aria-label`, `aria-labelledby`, `title`, or `id`).
+ *
+ * @param sf - The TypeScript SourceFile to check.
+ * @param filename - The filename for diagnostics reporting.
+ * @param level - The enforcement level:
+ * - `"strict"` → errors are reported as `"error"`.
+ * - `"warn"` → issues are reported as `"warn"`.
+ * - `"off"` → no checks are run.
+ *
+ * @returns An array of {@link Diagnostic} entries for any violations found.
  */
 export function runA11yChecks(
   sf: ts.SourceFile,
@@ -13,11 +25,19 @@ export function runA11yChecks(
   if (level === "off") return [];
   const diags: Diagnostic[] = [];
 
+  /**
+   * Check whether a given JSX element node has an accessible name.
+   * Pushes a diagnostic if missing.
+   *
+   * @param node - The TypeScript AST node to analyze.
+   */
   const checkHasAccessibleName = (node: ts.Node) => {
     if (!ts.isJsxSelfClosingElement(node) && !ts.isJsxOpeningElement(node))
       return;
+
     const tag = node.tagName.getText();
     if (!["input", "select", "textarea", "button"].includes(tag)) return;
+
     const props = new Map<string, string>();
     node.attributes.properties.forEach((p: ts.JsxAttributeLike) => {
       if (ts.isJsxAttribute(p) && p.name) {
@@ -26,11 +46,13 @@ export function runA11yChecks(
         props.set(name, val);
       }
     });
+
     const hasName =
       props.has("aria-label") ||
       props.has("aria-labelledby") ||
       props.has("title") ||
       props.has("id");
+
     if (!hasName) {
       diags.push({
         code: "LYRA_A11Y_001",
@@ -44,10 +66,16 @@ export function runA11yChecks(
     }
   };
 
+  /**
+   * Recursively visit all child nodes in the AST and run checks.
+   *
+   * @param n - The node to visit.
+   */
   const visit = (n: ts.Node) => {
     checkHasAccessibleName(n);
     ts.forEachChild(n, visit);
   };
+
   visit(sf);
   return diags;
 }

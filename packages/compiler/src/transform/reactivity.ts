@@ -1,9 +1,26 @@
 import ts from "typescript";
 
 /**
- * Transform Lyra directives to data-* attributes.
- * - on:click={fn}   -> data-on-click={fn}
- * - class:done={x}  -> data-class-done={x}
+ * Transform Lyra-specific JSX directives into `data-*` attributes
+ * that can later be picked up at runtime.
+ *
+ * Supported rewrites:
+ * - `on:click={fn}`   → `data-on-click={fn}`
+ * - `class:done={x}`  → `data-class-done={x}`
+ *
+ * @param sf - The TypeScript SourceFile representing the TSX code to transform.
+ * @param ctx - The TransformationContext provided by the TypeScript compiler API.
+ *
+ * @returns A new {@link ts.SourceFile} with JSX attributes rewritten.
+ *
+ * @example
+ * ```tsx
+ * // Input
+ * <button on:click={handleClick} class:active={isActive} />
+ *
+ * // After transform
+ * <button data-on-click={handleClick} data-class-active={isActive} />
+ * ```
  */
 export function transformReactivity(
   sf: ts.SourceFile,
@@ -11,6 +28,12 @@ export function transformReactivity(
 ): ts.SourceFile {
   const factory = ctx.factory;
 
+  /**
+   * Visit a node and transform JSX attributes if necessary.
+   *
+   * @param node - The AST node to visit.
+   * @returns The transformed node or the node itself.
+   */
   const visit = (node: ts.Node): ts.Node => {
     if (ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) {
       const newAttrs: ts.JsxAttributeLike[] = [];
@@ -22,6 +45,7 @@ export function transformReactivity(
         const name = prop.name.getText();
         const init = prop.initializer;
 
+        // Transform `on:event` into `data-on-event`
         if (name.startsWith("on:")) {
           const evt = name.split(":")[1];
           const runtimeAttr = factory.createJsxAttribute(
@@ -34,6 +58,7 @@ export function transformReactivity(
           return;
         }
 
+        // Transform `class:name` into `data-class-name`
         if (name.startsWith("class:")) {
           const cls = name.split(":")[1];
           const runtimeAttr = factory.createJsxAttribute(
@@ -46,6 +71,7 @@ export function transformReactivity(
           return;
         }
 
+        // Preserve other attributes unchanged
         newAttrs.push(prop);
       });
 
@@ -68,6 +94,6 @@ export function transformReactivity(
     return ts.visitEachChild(node, visit, ctx);
   };
 
-  // Important: return the same type (SourceFile)
+  // Important: return the same type (SourceFile) after traversal
   return ts.visitEachChild(sf, visit, ctx);
 }
