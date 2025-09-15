@@ -1,11 +1,19 @@
 {
-  "name": "@lyra/runtime",
+  "name": "@lyra/lyra-runtime",
   "version": "0.1.0",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "type": "module",
+  "files": [
+    "dist/**",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "prepublishOnly": "npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

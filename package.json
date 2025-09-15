@@ -1,5 +1,5 @@
 {
-  "name": "lyra-monorepo",
+  "name": "lyra",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,8 @@
   ],
   "scripts": {
     "precommit": "npm run lint:staged && npm run typecheck && npm test",
-    "build": "npm run -w packages -- run build",
+    "build": "npm run build:packages",
+    "build:packages": "npm run -w @lyra/lyra-compiler -w @lyra/lyra-runtime -w @lyra/vite-plugin -w @lyra/lyra-cli build",
     "clean": "rimraf \"packages/*/dist\"",
     "lint:staged": "lint-staged",
     "lint": "eslint \"packages/**/*.{ts,tsx}\" --max-warnings=0",

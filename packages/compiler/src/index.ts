@@ -1,7 +1,7 @@
 import ts from "typescript";
-import { runA11yChecks } from "./a11y/rules";
-import { transformReactivity } from "./transform/reactivity";
-import type { CompileOptions, CompileResult } from "./types";
+import { runA11yChecks } from "./a11y/rules.js";
+import { transformReactivity } from "./transform/reactivity.js";
+import type { CompileOptions, CompileResult } from "./types.js";
 
 /**
  * Compile a Lyra TSX module.

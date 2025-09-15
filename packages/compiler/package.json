@@ -1,14 +1,19 @@
 {
-  "name": "@lyra/compiler",
+  "name": "@lyra/lyra-compiler",
   "version": "0.1.0",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "type": "module",
+  "files": [
+    "dist/**",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "prepublishOnly": "npm run build"
   },
-  "dependencies": {
-    "typescript": "^5.6.3"
+  "publishConfig": {
+    "access": "public"
   }
 }

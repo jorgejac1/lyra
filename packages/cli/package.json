@@ -1,15 +1,19 @@
 {
-  "name": "@lyra/cli",
+  "name": "@lyra/lyra-cli",
   "version": "0.1.0",
-  "bin": {
-    "lyra-compile": "dist/index.js"
-  },
   "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "prepublishOnly": "npm run build"
   },
-  "dependencies": {
-    "@lyra/compiler": "0.1.0"
+  "publishConfig": {
+    "access": "public"
   }
 }
