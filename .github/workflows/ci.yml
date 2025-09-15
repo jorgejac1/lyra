@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 # cancel previous runs on the same branch/PR
 concurrency:
@@ -41,7 +41,7 @@ jobs:
         run: npm run typecheck
 
       - name: Test (with coverage)
-        run: npm test -- --coverage
+        run: npm test
 
       - name: Upload coverage HTML as artifact
         if: always()
