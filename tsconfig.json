@@ -1,0 +1,9 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/compiler" },
+    { "path": "packages/runtime" },
+    { "path": "packages/vite-plugin" },
+    { "path": "packages/cli" }
+  ]
+}

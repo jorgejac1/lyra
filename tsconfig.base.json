@@ -7,11 +7,6 @@
     "jsxImportSource": "preact",
     "strict": true,
     "skipLibCheck": true,
-    "isolatedModules": true,
-    "baseUrl": ".",
-    "paths": {
-      "@lyra/compiler": ["packages/compiler/src/index.ts"],
-      "@lyra/runtime": ["packages/runtime/src/index.ts"]
-    }
+    "isolatedModules": true
   }
 }

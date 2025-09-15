@@ -1,0 +1,3 @@
+#!/bin/sh
+# Husky v8+/v9 style hook (no husky.sh sourcing)
+npm run precommit

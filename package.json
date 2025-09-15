@@ -11,16 +11,26 @@
     "examples/todos"
   ],
   "scripts": {
+    "precommit": "npm run lint:staged && npm run typecheck && npm test",
     "build": "npm run -w packages -- run build",
     "clean": "rimraf \"packages/*/dist\"",
-    "typecheck": "tsc -b",
+    "lint:staged": "lint-staged",
     "lint": "eslint \"packages/**/*.{ts,tsx}\" --max-warnings=0",
     "lint:fix": "eslint \"packages/**/*.{ts,tsx}\" --fix",
+    "typecheck": "tsc -b",
     "test": "vitest run --coverage --reporter=dot",
     "test:coverage": "vitest run --coverage",
     "test:ci": "vitest run --coverage --reporter=dot",
     "test:watch": "vitest",
-    "dev": "npm run --workspace examples/todos dev"
+    "dev": "npm run --workspace examples/todos dev",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "packages/**/*.{ts,tsx}": [
+      "eslint --fix --max-warnings=0"
+    ],
+    "README.md": "prettier --write",
+    "*.{md,json,yml,yaml}": "prettier --write"
   },
   "devDependencies": {
     "@eslint/js": "^9.35.0",
@@ -28,7 +38,9 @@
     "@vitest/coverage-v8": "^2.1.9",
     "eslint": "^9.35.0",
     "eslint-plugin-prettier": "^5.5.4",
+    "husky": "^9.1.7",
     "jsdom": "^27.0.0",
+    "lint-staged": "^16.1.6",
     "prettier": "^3.6.2",
     "rimraf": "^6.0.1",
     "typescript": "^5.6.3",
