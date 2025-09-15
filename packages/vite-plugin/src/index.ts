@@ -2,22 +2,29 @@ import type { Plugin, TransformResult } from "vite";
 import { compile } from "@lyra/compiler";
 
 /**
- * Vite plugin that compiles `.lyra.tsx` files with Lyra's compiler.
+ * Vite plugin for Lyra.
+ *
+ * Transforms `.lyra.tsx` modules by invoking the Lyra compiler:
+ * - Rewrites directives at compile-time.
+ * - Forwards compiler diagnostics to Vite (`warn`/`error`).
+ * - Wraps output so consumers can import `{ mount, signal }` from `@lyra/runtime`.
  */
 export default function lyraPlugin(): Plugin {
   return {
     name: "vite-plugin-lyra",
     enforce: "pre",
 
+    /**
+     * Vite transform hook — runs for matched modules.
+     * @returns transformed module or `null` to skip.
+     */
     async transform(
       this: { error(msg: string): never; warn(msg: string): void },
       code: string,
       id: string,
       _options?: { ssr?: boolean },
     ): Promise<TransformResult | null> {
-      if (!id.endsWith(".lyra.tsx")) {
-        return null;
-      }
+      if (!id.endsWith(".lyra.tsx")) return null;
 
       const res = compile({
         filename: id,
@@ -27,6 +34,7 @@ export default function lyraPlugin(): Plugin {
         a11yLevel: "strict",
       });
 
+      // Forward diagnostics to Vite logger
       res.diagnostics.forEach((d) => {
         const msg = `${d.code}: ${d.message} (in ${d.file})`;
         if (d.severity === "error") this.error(msg);
@@ -38,11 +46,7 @@ export default function lyraPlugin(): Plugin {
         res.code +
         `\nexport { mount, signal };`;
 
-      // No sourcemaps yet → return map: null
-      return {
-        code: wrapped,
-        map: null,
-      };
+      return { code: wrapped, map: null };
     },
   };
 }

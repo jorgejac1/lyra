@@ -4,7 +4,16 @@ import { transformReactivity } from "./transform/reactivity";
 import type { CompileOptions, CompileResult } from "./types";
 
 /**
- * Compile a Lyra TSX module: run a11y checks and directive transforms.
+ * Compile a Lyra TS/TSX module.
+ *
+ * Pipeline:
+ *  1) Parse to {@link ts.SourceFile}.
+ *  2) Run a11y static checks (emit diagnostics).
+ *  3) Apply directive transforms (`on:*`, `class:*` → `data-*`).
+ *  4) Print to string (no source maps yet).
+ *
+ * @param options - Compile options (filename, source, dev flags, a11y level).
+ * @returns Transformed code, diagnostics, and meta info.
  */
 export function compile(options: CompileOptions): CompileResult {
   const {
@@ -15,21 +24,31 @@ export function compile(options: CompileOptions): CompileResult {
     a11yLevel = "strict",
   } = options;
 
+  const isTSX =
+    filename.endsWith(".tsx") ||
+    filename.endsWith(".lyra.tsx") ||
+    filename.endsWith(".jsx");
+
+  // 1) Parse
   const sf = ts.createSourceFile(
     filename,
     source,
     ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TSX,
+    /*setParentNodes*/ true,
+    isTSX ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
+
+  // 2) A11y checks
   const diags = runA11yChecks(sf, filename, a11yLevel);
 
+  // 3) Transform directives
   const result = ts.transform<ts.SourceFile>(sf, [
     (ctx): ts.Transformer<ts.SourceFile> =>
       (node: ts.SourceFile) =>
         transformReactivity(node, ctx),
   ]);
 
+  // 4) Print
   const printer = ts.createPrinter({
     newLine: ts.NewLineKind.LineFeed,
     removeComments: false,

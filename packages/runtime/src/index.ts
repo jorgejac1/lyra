@@ -3,14 +3,32 @@
  * @packageDocumentation
  */
 
+/**
+ * Function returned by {@link Signal.subscribe} to unsubscribe a listener.
+ */
 export type Unsubscribe = () => void;
 
+/**
+ * A minimal reactive container that stores a value of type `T` and can notify subscribers.
+ *
+ * @typeParam T - The type of the stored value.
+ * @property value - The current value. Assigning to this property notifies subscribers.
+ * @property __isSignal - Internal brand used by runtime type guards.
+ * @property subscribe - Optional method to observe changes. Returns an {@link Unsubscribe}.
+ */
 export type Signal<T> = {
   value: T;
   __isSignal: true;
   subscribe?: (fn: (v: T) => void) => Unsubscribe;
 };
 
+/**
+ * Create a new {@link Signal}.
+ *
+ * @typeParam T - The type of the initial value.
+ * @param initial - Initial value for the signal.
+ * @returns A signal carrying the provided value.
+ */
 export function signal<T>(initial: T): Signal<T> {
   let _value = initial;
   const listeners = new Set<(v: T) => void>();
@@ -33,6 +51,12 @@ export function signal<T>(initial: T): Signal<T> {
   return sig;
 }
 
+/**
+ * Type guard for {@link Signal}.
+ *
+ * @param x - Unknown value to test.
+ * @returns `true` if `x` is a signal produced by {@link signal}.
+ */
 function isSignal(x: unknown): x is Signal<unknown> {
   return (
     !!x &&
@@ -43,7 +67,28 @@ function isSignal(x: unknown): x is Signal<unknown> {
 }
 
 /**
- * Walk the DOM and wire Lyra `data-*` directive attributes to real behaviors.
+ * Wire Lyra `data-*` directive attributes under the given `root` element.
+ *
+ * Supported attributes on elements found within `root`:
+ *
+ * - **Events**: `data-on-<event>`
+ *   Looks up a handler function by name on the element or on `root`, then calls
+ *   `addEventListener("<event>", handler)`.
+ *
+ * - **Classes**: `data-class-<className>`
+ *   Reads a boolean property from the element (by the attribute value) and
+ *   adds/removes `<className>` accordingly.
+ *
+ * - **Bindings (Signals)**:
+ *   - `data-value` → binds a {@link Signal} to `.value` (for inputs, textareas, or a fallback property)
+ *   - `data-checked` → binds a {@link Signal} to `.checked` (checkboxes/radios)
+ *   - `data-disabled` → binds a {@link Signal} to `.disabled`
+ *   - `data-ariaLabel` → binds a {@link Signal} to `.ariaLabel`
+ *
+ * On initial mount, the current signal value is applied. Subsequent updates are
+ * propagated by subscribing to the signal.
+ *
+ * @param root - Root DOM node whose subtree will be scanned and wired.
  */
 export function mount(root: HTMLElement): void {
   type DynEl = HTMLElement & Record<string, unknown>;
@@ -53,8 +98,9 @@ export function mount(root: HTMLElement): void {
     const el = walker.currentNode as DynEl;
     if (!el) continue;
 
-    // Wire events
+    // Wire events and class toggles declared as attributes
     Array.from(el.attributes).forEach((attr) => {
+      // data-on-<event> → addEventListener
       if (attr.name.startsWith("data-on-")) {
         const evt = attr.name.replace("data-on-", "");
         const handlerName = attr.value;
@@ -69,6 +115,7 @@ export function mount(root: HTMLElement): void {
         }
       }
 
+      // data-class-<className> → toggle class based on boolean property
       if (attr.name.startsWith("data-class-")) {
         const cls = attr.name.replace("data-class-", "");
         const boundKey = attr.value;
@@ -80,7 +127,12 @@ export function mount(root: HTMLElement): void {
       }
     });
 
-    // Helper to set known DOM props without `any`
+    /**
+     * Assign supported DOM properties with proper coercion, without using `any`.
+     *
+     * @param prop - One of the supported DOM properties: "value" | "checked" | "disabled" | "ariaLabel".
+     * @param nv - New value to assign (from the signal).
+     */
     const setDomProp = (
       prop: "value" | "checked" | "disabled" | "ariaLabel",
       nv: unknown,
@@ -92,7 +144,7 @@ export function mount(root: HTMLElement): void {
           } else if (el instanceof HTMLTextAreaElement) {
             el.value = nv == null ? "" : String(nv);
           } else {
-            // fallback: any element we allow to carry a .value property
+            // Fallback: allow generic elements to carry a `.value` string
             (el as unknown as { value?: string }).value =
               nv == null ? "" : String(nv);
           }
@@ -114,16 +166,16 @@ export function mount(root: HTMLElement): void {
       }
     };
 
-    // Bind signals via data-* attributes
+    // Bind signals declared via data-* attributes
     (["value", "checked", "disabled", "ariaLabel"] as const).forEach((prop) => {
       const boundKey = el.getAttribute(`data-${prop}`);
       if (!boundKey) return;
       const maybeSignal = (el as DynEl)[boundKey];
       if (isSignal(maybeSignal)) {
         const s = maybeSignal as Signal<unknown>;
-        // initial apply
+        // Initial apply
         setDomProp(prop, s.value);
-        // subscribe to updates
+        // Reactive updates
         s.subscribe?.((nv) => {
           setDomProp(prop, nv);
         });
