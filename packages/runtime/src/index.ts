@@ -34,7 +34,12 @@ export function signal<T>(initial: T): Signal<T> {
 }
 
 function isSignal(x: unknown): x is Signal<unknown> {
-  return !!x && typeof x === "object" && (x as any).__isSignal === true;
+  return (
+    !!x &&
+    typeof x === "object" &&
+    "__isSignal" in (x as Record<string, unknown>) &&
+    (x as { __isSignal?: unknown }).__isSignal === true
+  );
 }
 
 /**
@@ -53,8 +58,13 @@ export function mount(root: HTMLElement): void {
       if (attr.name.startsWith("data-on-")) {
         const evt = attr.name.replace("data-on-", "");
         const handlerName = attr.value;
-        const candidate = (el as DynEl)[handlerName] ?? (root as DynEl)[handlerName];
-        if (typeof candidate === "function") {
+        const fromEl = (el as DynEl)[handlerName];
+        const fromRoot = (root as DynEl)[handlerName];
+        const candidate = (typeof fromEl === "function" ? fromEl : fromRoot) as
+          | ((e: Event) => void)
+          | undefined;
+
+        if (candidate) {
           el.addEventListener(evt, candidate as EventListener);
         }
       }
@@ -70,20 +80,52 @@ export function mount(root: HTMLElement): void {
       }
     });
 
+    // Helper to set known DOM props without `any`
+    const setDomProp = (
+      prop: "value" | "checked" | "disabled" | "ariaLabel",
+      nv: unknown,
+    ) => {
+      switch (prop) {
+        case "value": {
+          if (el instanceof HTMLInputElement) {
+            el.value = nv == null ? "" : String(nv);
+          } else if (el instanceof HTMLTextAreaElement) {
+            el.value = nv == null ? "" : String(nv);
+          } else {
+            // fallback: any element we allow to carry a .value property
+            (el as unknown as { value?: string }).value =
+              nv == null ? "" : String(nv);
+          }
+          break;
+        }
+        case "checked": {
+          (el as unknown as HTMLInputElement).checked = Boolean(nv);
+          break;
+        }
+        case "disabled": {
+          (el as unknown as { disabled: boolean }).disabled = Boolean(nv);
+          break;
+        }
+        case "ariaLabel": {
+          (el as unknown as { ariaLabel: string | null }).ariaLabel =
+            nv == null ? null : String(nv);
+          break;
+        }
+      }
+    };
+
     // Bind signals via data-* attributes
-    ["value", "checked", "disabled", "ariaLabel"].forEach((prop) => {
+    (["value", "checked", "disabled", "ariaLabel"] as const).forEach((prop) => {
       const boundKey = el.getAttribute(`data-${prop}`);
       if (!boundKey) return;
       const maybeSignal = (el as DynEl)[boundKey];
       if (isSignal(maybeSignal)) {
-        const s = maybeSignal;
+        const s = maybeSignal as Signal<unknown>;
         // initial apply
-        (el as any)[prop] =
-          prop === "checked" || prop === "disabled" ? Boolean(s.value) : s.value == null ? "" : String(s.value);
-        // subscribe
+        setDomProp(prop, s.value);
+        // subscribe to updates
         s.subscribe?.((nv) => {
-          (el as any)[prop] =
-            prop === "checked" || prop === "disabled" ? Boolean(nv) : nv == null ? "" : String(nv);
+          setDomProp(prop, nv);
         });
       }
     });

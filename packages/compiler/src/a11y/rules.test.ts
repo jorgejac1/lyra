@@ -3,7 +3,13 @@ import ts from "typescript";
 import { runA11yChecks } from "./rules";
 
 function check(src: string, level: "strict" | "warn" | "off" = "strict") {
-  const sf = ts.createSourceFile("x.tsx", src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const sf = ts.createSourceFile(
+    "x.tsx",
+    src,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
   return runA11yChecks(sf, "x.tsx", level);
 }
 
@@ -20,7 +26,7 @@ describe("a11y rules", () => {
     expect(diags.length).toBe(0);
   });
 
-  it("handles attribute without initializer (covers : \"\")", () => {
+  it('handles attribute without initializer (covers : "")', () => {
     const diags = check("export default () => <input aria-label />;");
     // Attribute exists but has no value; initializer is undefined
     expect(diags.length).toBe(0); // no error, because aria-label is present

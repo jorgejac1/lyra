@@ -4,16 +4,25 @@ import type { CompileResult } from "./types";
 
 describe("compile", () => {
   it("transforms directives", () => {
-    const src = "export default function X(){ return <button on:click={fn} class:active={ok}></button>; }";
-    const out = compile({ filename: "x.lyra.tsx", source: src, a11yLevel: "off" });
+    const src =
+      "export default function X(){ return <button on:click={fn} class:active={ok}></button>; }";
+    const out = compile({
+      filename: "x.lyra.tsx",
+      source: src,
+      a11yLevel: "off",
+    });
     expect(out.code).toContain("data-on-click");
     expect(out.code).toContain("data-class-active");
   });
 
   it("emits a11y diagnostics", () => {
     const src = "export default function X(){ return <button>Go</button>; }";
-    const out = compile({ filename: "x.lyra.tsx", source: src, a11yLevel: "strict" });
-    expect(out.diagnostics.some(d => d.code === "LYRA_A11Y_001")).toBe(true);
+    const out = compile({
+      filename: "x.lyra.tsx",
+      source: src,
+      a11yLevel: "strict",
+    });
+    expect(out.diagnostics.some((d) => d.code === "LYRA_A11Y_001")).toBe(true);
   });
 
   it("types are consumable", () => {

@@ -16,7 +16,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@lyra/compiler": path.resolve(__dirname, "packages/compiler/src/index.ts"),
+      "@lyra/compiler": path.resolve(
+        __dirname,
+        "packages/compiler/src/index.ts",
+      ),
       "@lyra/runtime": path.resolve(__dirname, "packages/runtime/src/index.ts"),
     },
   },

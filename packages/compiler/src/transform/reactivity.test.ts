@@ -3,8 +3,16 @@ import ts from "typescript";
 import { transformReactivity } from "./reactivity";
 
 function transform(src: string) {
-  const sf = ts.createSourceFile("t.tsx", src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const result = ts.transform<ts.SourceFile>(sf, [ctx => n => transformReactivity(n, ctx)]);
+  const sf = ts.createSourceFile(
+    "t.tsx",
+    src,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const result = ts.transform<ts.SourceFile>(sf, [
+    (ctx) => (n) => transformReactivity(n, ctx),
+  ]);
   const printer = ts.createPrinter();
   return printer.printFile(result.transformed[0]);
 }

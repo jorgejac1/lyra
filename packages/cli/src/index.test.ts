@@ -25,7 +25,7 @@ describe("cli top-level script", () => {
 
     // Match the broader process.exit signature used by Node types
     const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
-      code?: string | number | null | undefined
+      code?: string | number | null | undefined,
     ) => {
       // throw to stop module execution after exit is called
       throw Object.assign(new Error("EXIT"), { code });
@@ -37,7 +37,7 @@ describe("cli top-level script", () => {
 
     expect(errorSpy).toHaveBeenCalledTimes(1);
     expect(String(errorSpy.mock.calls[0][0])).toMatch(
-      /Usage: lyra-compile <file\.lyra\.tsx>/
+      /Usage: lyra-compile <file\.lyra\.tsx>/,
     );
     expect(exitSpy).toHaveBeenCalledWith(1);
     expect(err).toBeTruthy();
@@ -52,7 +52,7 @@ describe("cli top-level script", () => {
     // Mock fs
     const writeFileSync = vi.fn();
     const readFileSync = vi.fn(
-      () => "export default function X(){ return <button on:click={fn}/> }"
+      () => "export default function X(){ return <button on:click={fn}/> }",
     );
     vi.doMock("node:fs", () => ({
       default: { readFileSync, writeFileSync },
@@ -102,7 +102,7 @@ describe("cli top-level script", () => {
     expect(writeFileSync).toHaveBeenCalledTimes(1);
     expect(writeFileSync.mock.calls[0][0]).toBe("/tmp/foo.tsx");
     expect(String(writeFileSync.mock.calls[0][1])).toContain(
-      "/* transformed */"
+      "/* transformed */",
     );
 
     // Diagnostics summary & emitted path logs
@@ -119,7 +119,7 @@ describe("cli top-level script", () => {
 
     const writeFileSync = vi.fn();
     const readFileSync = vi.fn(
-      () => "export default function X(){ return <div/> }"
+      () => "export default function X(){ return <div/> }",
     );
     vi.doMock("node:fs", () => ({
       default: { readFileSync, writeFileSync },
@@ -163,7 +163,7 @@ describe("cli top-level script", () => {
     // Mock fs
     const writeFileSync = vi.fn();
     const readFileSync = vi.fn(
-      () => "export default function X(){ return <div/> }"
+      () => "export default function X(){ return <div/> }",
     );
     vi.doMock("node:fs", () => ({
       default: { readFileSync, writeFileSync },
