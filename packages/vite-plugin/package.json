@@ -1,0 +1,14 @@
+{
+  "name": "@lyra/vite-plugin",
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lyra/compiler": "0.1.0"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@lyra/cli",
+  "version": "0.1.0",
+  "bin": {
+    "lyra-compile": "dist/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@lyra/compiler": "0.1.0"
+  }
+}

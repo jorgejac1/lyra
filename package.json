@@ -1,0 +1,36 @@
+{
+  "name": "lyra-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/compiler",
+    "packages/runtime",
+    "packages/vite-plugin",
+    "packages/cli",
+    "examples/todos"
+  ],
+  "scripts": {
+    "build": "npm run -w packages -- run build",
+    "clean": "rimraf \"packages/*/dist\"",
+    "typecheck": "tsc -b",
+    "lint": "eslint \"packages/**/*.{ts,tsx}\" --max-warnings=0",
+    "lint:fix": "eslint \"packages/**/*.{ts,tsx}\" --fix",
+    "test": "vitest run --coverage --reporter=dot",
+    "test:coverage": "vitest run --coverage",
+    "test:ci": "vitest run --coverage --reporter=dot",
+    "test:watch": "vitest",
+    "dev": "npm run --workspace examples/todos dev"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.2",
+    "@vitest/coverage-v8": "^2.1.9",
+    "jsdom": "^27.0.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.0.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
