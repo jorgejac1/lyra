@@ -7,6 +7,9 @@
     "jsxImportSource": "preact",
     "strict": true,
     "skipLibCheck": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "types": ["node"],
+    "esModuleInterop": true,
+    "resolveJsonModule": true
   }
 }

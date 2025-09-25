@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import fs from "node:fs";
-import { compile } from "@lyra/compiler";
+import { compile } from "@lyra-dev/compiler";
 
 /**
  * Lyra CLI Entrypoint.

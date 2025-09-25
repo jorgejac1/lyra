@@ -69,8 +69,8 @@ describe("vite plugin", () => {
     // Isolate module state so our mock is used only in this test
     vi.resetModules();
 
-    // Mock @lyra/compiler to return 1 warn + 1 error diagnostic
-    vi.doMock("@lyra/compiler", () => {
+    // Mock @lyra-dev/compiler to return 1 warn + 1 error diagnostic
+    vi.doMock("@lyra-dev/compiler", () => {
       return {
         compile: vi.fn(() => ({
           code: "export default 0;",
@@ -80,12 +80,14 @@ describe("vite plugin", () => {
               code: "LYRA_W",
               message: "a warning",
               file: "f.tsx",
+              filename: "f.tsx",
               severity: "warn" as const,
             },
             {
               code: "LYRA_E",
               message: "an error",
               file: "g.tsx",
+              filename: "g.tsx",
               severity: "error" as const,
             },
           ],
@@ -135,6 +137,6 @@ describe("vite plugin", () => {
     expect(errors[0]).toContain("LYRA_E: an error (in g.tsx)");
 
     // Clean up the mock so other tests aren't affected
-    vi.doUnmock("@lyra/compiler");
+    vi.doUnmock("@lyra-dev/compiler");
   });
 });

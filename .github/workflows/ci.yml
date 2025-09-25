@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-# cancel previous runs on the same branch/PR
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -29,19 +28,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: npm
+          cache: pnpm
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Lint
-        run: npm run lint
+        run: pnpm lint
 
       - name: Typecheck
-        run: npm run typecheck
+        run: pnpm typecheck
 
       - name: Test (with coverage)
-        run: npm test
+        run: pnpm test
 
       - name: Upload coverage HTML as artifact
         if: always()

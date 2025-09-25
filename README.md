@@ -1,11 +1,11 @@
-# Lyra
+# lyra-dev
 
-[![CI](https://github.com/jorgejac1/lyra/actions/workflows/ci.yml/badge.svg)](https://github.com/jorgejac1/lyra/actions)
-[![npm version](https://img.shields.io/npm/v/@lyra/compiler.svg)](https://www.npmjs.com/package/@lyra/compiler)
+[![CI](https://github.com/jorgejac1/lyra-dev/actions/workflows/ci.yml/badge.svg)](https://github.com/jorgejac1/lyra-dev/actions)
+[![npm version](https://img.shields.io/npm/v/@lyra-dev/compiler.svg)](https://www.npmjs.com/package/@lyra-dev/compiler)
 [![Coverage](https://img.shields.io/codecov/c/github/<your-username>/<your-repo>)](https://codecov.io/gh/<your-username>/<your-repo>)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-> **Lyra** is a compile-time, a11y-first, signal-driven front-end framework.
+> **lyra-dev** is a compile-time, a11y-first, signal-driven front-end framework.
 
 ---
 
@@ -16,7 +16,7 @@
 - 🎯 **Typed routes & loaders** — end-to-end type safety between client and server.
 - 🎨 **Atomic CSS emission** — minimal CSS, themeable with tokens.
 - 🧪 **First-class testing** — built-in a11y manifest, unit tests, and CI integration.
-- 🔌 **Vite plugin** — `.lyra.tsx` files compile on the fly.
+- 🔌 **Vite plugin** — `.lyra-dev.tsx` files compile on the fly.
 
 ---
 
@@ -24,11 +24,11 @@
 
 This monorepo includes:
 
-- **`@lyra/compiler`** – TypeScript transformer for directives and a11y rules.
-- **`@lyra/runtime`** – Signals, stores, and DOM binding logic.
-- **`@lyra/vite-plugin`** – Integrates with Vite to compile `.lyra.tsx` files.
-- **`@lyra/cli`** – Command-line tool `lyra-compile` for single-file transforms.
-- **`examples/todos`** – Example app using Lyra + Vite + Preact (demo scaffold).
+- **`@lyra-dev/compiler`** – TypeScript transformer for directives and a11y rules.
+- **`@lyra-dev/runtime`** – Signals, stores, and DOM binding logic.
+- **`@lyra-dev/vite-plugin`** – Integrates with Vite to compile `.lyra-dev.tsx` files.
+- **`@lyra-dev/cli`** – Command-line tool `lyra-dev-compile` for single-file transforms.
+- **`examples/todos`** – Example app using lyra-dev + Vite + Preact (demo scaffold).
 
 ---
 
@@ -37,7 +37,7 @@ This monorepo includes:
 Clone the repo and install dependencies:
 
 ```bash
-git clone https://github.com/jorgejac1/lyra.git
+git clone https://github.com/jorgejac1/lyra-dev.git
 cd <your-repo>
 npm install
 ```
@@ -100,4 +100,4 @@ This project is licensed under the [MIT License](./LICENSE).
 
 ## 🌟 Acknowledgements
 
-Lyra is inspired by ideas from **React**, **SolidJS**, and **Svelte** but takes a unique approach by enforcing accessibility at compile-time and shipping less code to the client.
+lyra-dev is inspired by ideas from **React**, **SolidJS**, and **Svelte** but takes a unique approach by enforcing accessibility at compile-time and shipping less code to the client.

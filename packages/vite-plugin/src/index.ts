@@ -1,5 +1,5 @@
 import type { Plugin, TransformResult } from "vite";
-import { compile } from "@lyra/compiler";
+import { compile } from "@lyra-dev/compiler";
 
 /**
  * Vite plugin for Lyra.
@@ -7,7 +7,7 @@ import { compile } from "@lyra/compiler";
  * Transforms `.lyra.tsx` modules by invoking the Lyra compiler:
  * - Rewrites directives at compile-time.
  * - Forwards compiler diagnostics to Vite (`warn`/`error`).
- * - Wraps output so consumers can import `{ mount, signal }` from `@lyra/runtime`.
+ * - Wraps output so consumers can import `{ mount, signal }` from `@lyra-dev/runtime`.
  */
 export default function lyraPlugin(): Plugin {
   return {
@@ -42,7 +42,7 @@ export default function lyraPlugin(): Plugin {
       });
 
       const wrapped =
-        `import { mount, signal } from '@lyra/runtime';\n` +
+        `import { mount, signal } from '@lyra-dev/runtime';\n` +
         res.code +
         `\nexport { mount, signal };`;
 

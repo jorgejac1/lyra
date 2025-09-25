@@ -1,14 +1,22 @@
 {
-  "name": "@lyra/vite-plugin",
+  "name": "@lyra-dev/vite-plugin",
   "version": "0.1.0",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
   "type": "module",
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "test": "vitest run"
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.cjs",
+      "import": "./dist/index.js"
+    }
   },
-  "dependencies": {
-    "@lyra/compiler": "0.1.0"
+  "peerDependencies": {
+    "vite": "^5.4.20"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^22.18.6"
   }
 }

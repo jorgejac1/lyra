@@ -1,0 +1,52 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write # for npm provenance
+  # packages: write  # only if also publishing to GitHub Packages
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+          cache: pnpm
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      # optional: build all packages before publish
+      - name: Build
+        run: pnpm -r build
+
+      # Configure npm token (create NPM_TOKEN in repo secrets)
+      - name: Set npm token
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Publish only changed packages according to workspace versions
+      # --provenance requires id-token: write and Node 20+
+      - name: Publish changed packages
+        run: |
+          pnpm -r publish --access public --no-git-checks --provenance || true

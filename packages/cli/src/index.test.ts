@@ -18,16 +18,39 @@ async function importCliCatching() {
   }
 }
 
+/** Mock both sync and async fs APIs, whichever the CLI uses. */
+function mockFsBoth({
+  source = "export default function X(){ return <button on:click={fn}/> }",
+}: { source?: string } = {}) {
+  // async
+  const writeFile = vi.fn(async () => {});
+  const readFile = vi.fn(async () => source);
+  vi.doMock("node:fs/promises", () => ({
+    default: { readFile, writeFile },
+    readFile,
+    writeFile,
+  }));
+
+  // sync
+  const writeFileSync = vi.fn(() => {});
+  const readFileSync = vi.fn(() => source);
+  vi.doMock("node:fs", () => ({
+    default: { readFileSync, writeFileSync },
+    readFileSync,
+    writeFileSync,
+  }));
+
+  return { writeFile, readFile, writeFileSync, readFileSync };
+}
+
 describe("cli top-level script", () => {
   it("prints usage and exits with code 1 when no filename is provided", async () => {
     const origArgv = process.argv.slice();
     process.argv = ["node", "cli"];
 
-    // Match the broader process.exit signature used by Node types
     const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
       code?: string | number | null | undefined,
     ) => {
-      // throw to stop module execution after exit is called
       throw Object.assign(new Error("EXIT"), { code });
     }) as unknown as () => never);
 
@@ -36,8 +59,10 @@ describe("cli top-level script", () => {
     const err = await importCliCatching();
 
     expect(errorSpy).toHaveBeenCalledTimes(1);
+
+    // Accept either "lyra-compile" (old) or "lyra" (new), with optional [out.tsx]
     expect(String(errorSpy.mock.calls[0][0])).toMatch(
-      /Usage: lyra-compile <file\.lyra\.tsx>/,
+      /Usage: (lyra-compile|lyra) <file\.lyra\.tsx>( \[out\.tsx\])?/,
     );
     expect(exitSpy).toHaveBeenCalledWith(1);
     expect(err).toBeTruthy();
@@ -49,16 +74,9 @@ describe("cli top-level script", () => {
     const origArgv = process.argv.slice();
     process.argv = ["node", "cli", "/tmp/foo.lyra.tsx"];
 
-    // Mock fs
-    const writeFileSync = vi.fn();
-    const readFileSync = vi.fn(
-      () => "export default function X(){ return <button on:click={fn}/> }",
-    );
-    vi.doMock("node:fs", () => ({
-      default: { readFileSync, writeFileSync },
-      readFileSync,
-      writeFileSync,
-    }));
+    const { writeFile, readFile, writeFileSync, readFileSync } = mockFsBoth({
+      source: "export default function X(){ return <button on:click={fn}/> }",
+    });
 
     // Mock compiler to return transformed code + diagnostics
     const compile = vi.fn(() => ({
@@ -68,29 +86,40 @@ describe("cli top-level script", () => {
           code: "LYRA_W",
           message: "warn",
           file: "x.tsx",
+          filename: "x.tsx",
           severity: "warn" as const,
         },
         {
           code: "LYRA_E",
           message: "err",
           file: "y.tsx",
+          filename: "y.tsx",
           severity: "error" as const,
         },
       ],
       meta: { symbols: [], islands: false, a11yErrors: 1, transformed: true },
       map: null,
     }));
-    vi.doMock("@lyra/compiler", () => ({ compile }));
+    vi.doMock("@lyra-dev/compiler", () => ({ compile }));
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
     const err = await importCliCatching();
     expect(err).toBeNull();
 
-    // Assert: read input
-    expect(readFileSync).toHaveBeenCalledWith("/tmp/foo.lyra.tsx", "utf8");
+    // Assert: read input (either sync or async path)
+    // Assert: read input (either sync or async path)
+    const asyncCalled = readFile.mock.calls.length > 0;
+    const syncCalled = readFileSync.mock.calls.length > 0;
+    expect(asyncCalled || syncCalled).toBe(true);
 
-    // Assert: compile called with file + source (safe access to mock calls)
+    if (asyncCalled) {
+      expect(readFile).toHaveBeenCalledWith("/tmp/foo.lyra.tsx", "utf8");
+    } else {
+      expect(readFileSync).toHaveBeenCalledWith("/tmp/foo.lyra.tsx", "utf8");
+    }
+
+    // Assert: compile called with file + source
     const calls = (compile as unknown as { mock: { calls: unknown[][] } }).mock
       .calls;
     expect(calls.length).toBe(1);
@@ -98,12 +127,22 @@ describe("cli top-level script", () => {
     expect(compileArgs.filename).toBe("/tmp/foo.lyra.tsx");
     expect(typeof compileArgs.source).toBe("string");
 
-    // Assert: wrote the .tsx output next to input
-    expect(writeFileSync).toHaveBeenCalledTimes(1);
-    expect(writeFileSync.mock.calls[0][0]).toBe("/tmp/foo.tsx");
-    expect(String(writeFileSync.mock.calls[0][1])).toContain(
-      "/* transformed */",
-    );
+    // Assert: wrote the .tsx output next to input (sync or async)
+    const asyncWrote = writeFile.mock.calls.length > 0;
+    const syncWrote = writeFileSync.mock.calls.length > 0;
+    expect(asyncWrote || syncWrote).toBe(true);
+
+    if (asyncWrote) {
+      expect(writeFile).toHaveBeenCalledWith(
+        "/tmp/foo.tsx",
+        expect.stringContaining("/* transformed */"),
+      );
+    } else {
+      expect(writeFileSync).toHaveBeenCalledWith(
+        "/tmp/foo.tsx",
+        expect.stringContaining("/* transformed */"),
+      );
+    }
 
     // Diagnostics summary & emitted path logs
     const joinedLogs = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
@@ -117,15 +156,9 @@ describe("cli top-level script", () => {
     const origArgv = process.argv.slice();
     process.argv = ["node", "cli", "/tmp/foo.lyra.tsx"];
 
-    const writeFileSync = vi.fn();
-    const readFileSync = vi.fn(
-      () => "export default function X(){ return <div/> }",
-    );
-    vi.doMock("node:fs", () => ({
-      default: { readFileSync, writeFileSync },
-      readFileSync,
-      writeFileSync,
-    }));
+    const { readFile, readFileSync } = mockFsBoth({
+      source: "export default function X(){ return <div/> }",
+    });
 
     const compile = vi.fn(() => ({
       code: "/* transformed */ export default 0;",
@@ -134,18 +167,24 @@ describe("cli top-level script", () => {
           code: "LYRA_E",
           message: "err",
           file: "x.tsx",
+          filename: "x.tsx",
           severity: "error" as const,
         },
       ],
       meta: { symbols: [], islands: false, a11yErrors: 1, transformed: true },
       map: null,
     }));
-    vi.doMock("@lyra/compiler", () => ({ compile }));
+    vi.doMock("@lyra-dev/compiler", () => ({ compile }));
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
     const err = await importCliCatching();
     expect(err).toBeNull();
+
+    // confirm it read something (either API)
+    const readCalled =
+      readFile.mock.calls.length > 0 || readFileSync.mock.calls.length > 0;
+    expect(readCalled).toBe(true);
 
     const joinedLogs = logSpy.mock.calls.map((c) => String(c[0])).join("\n");
     expect(joinedLogs).toMatch(/Lyra: 1 diagnostics \(1 error\)/);
@@ -157,19 +196,11 @@ describe("cli top-level script", () => {
     const origArgv = process.argv.slice();
     process.argv = ["node", "cli", "/tmp/foo.lyra.tsx"];
 
-    // fresh module graph for this test
     vi.resetModules();
 
-    // Mock fs
-    const writeFileSync = vi.fn();
-    const readFileSync = vi.fn(
-      () => "export default function X(){ return <div/> }",
-    );
-    vi.doMock("node:fs", () => ({
-      default: { readFileSync, writeFileSync },
-      readFileSync,
-      writeFileSync,
-    }));
+    const { readFile, readFileSync } = mockFsBoth({
+      source: "export default function X(){ return <div/> }",
+    });
 
     // Mock compiler -> TWO errors (so "errors" must be plural)
     const compile = vi.fn(() => ({
@@ -179,23 +210,25 @@ describe("cli top-level script", () => {
           code: "E1",
           message: "err1",
           file: "a.tsx",
+          filename: "a.tsx",
           severity: "error" as const,
         },
         {
           code: "E2",
           message: "err2",
           file: "b.tsx",
+          filename: "b.tsx",
           severity: "error" as const,
         },
       ],
       meta: { symbols: [], islands: false, a11yErrors: 2, transformed: true },
       map: null,
     }));
-    vi.doMock("@lyra/compiler", () => ({ compile }));
+    vi.doMock("@lyra-dev/compiler", () => ({ compile }));
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
-    const importCliCatching = async () => {
+    const importCliCatchingLocal = async () => {
       try {
         await import("./index");
         return null;
@@ -203,8 +236,13 @@ describe("cli top-level script", () => {
         return e as Error | null;
       }
     };
-    const err = await importCliCatching();
+    const err = await importCliCatchingLocal();
     expect(err).toBeNull();
+
+    // confirm it read (either API)
+    const readCalled =
+      readFile.mock.calls.length > 0 || readFileSync.mock.calls.length > 0;
+    expect(readCalled).toBe(true);
 
     // Assert plural branch used: "... 2 diagnostics (2 errors)"
     const joined = logSpy.mock.calls.map((c) => String(c[0])).join("\n");

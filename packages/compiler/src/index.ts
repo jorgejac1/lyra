@@ -27,7 +27,7 @@ import type { CompileOptions, CompileResult } from "./types.js";
  *
  * @example
  * ```ts
- * import { compile } from "@lyra/compiler";
+ * import { compile } from "@lyra-dev/compiler";
  *
  * const result = compile({
  *   filename: "Component.lyra.tsx",
