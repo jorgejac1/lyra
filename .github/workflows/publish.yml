@@ -14,7 +14,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # for npm provenance
+  id-token: write # needed for --provenance
 
 jobs:
   publish:
@@ -27,34 +27,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 1) Node first (adds corepack too)
+      # Node first (Corepack included)
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          registry-url: "https://registry.npmjs.org"
+          registry-url: https://registry.npmjs.org
           cache: pnpm
 
-      # 2) Install pnpm v9
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-          run_install: false
-
-      # 2b) Corepack fallback (safety)
-      - name: Ensure pnpm via Corepack (fallback)
+      # Install pnpm via Corepack (most reliable on GH runners)
+      - name: Enable Corepack & activate pnpm
         run: |
-          if ! command -v pnpm >/dev/null 2>&1; then
-            corepack enable
-            corepack prepare pnpm@9 --activate
-          fi
-
-      # 3) Verify pnpm is on PATH
-      - name: Check pnpm
-        run: |
+          set -euxo pipefail
+          corepack enable
+          corepack prepare pnpm@9 --activate
           which pnpm
           pnpm --version
+          echo "PATH=$PATH"
 
       - name: Install deps
         run: pnpm install --frozen-lockfile
@@ -63,24 +52,24 @@ jobs:
         run: pnpm -r build
 
       - name: Set npm token
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-          echo "always-auth=true" >> ~/.npmrc
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euxo pipefail
+          test -n "${NPM_TOKEN}"
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+          echo "always-auth=true" >> ~/.npmrc
+          npm whoami
+          npm ping
 
       - name: Determine component & version from tag/release
         id: info
         shell: bash
         run: |
-          # Prefer release payload if present
+          set -euo pipefail
           TAG="${{ github.event.release.tag_name || github.ref_name }}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-          # Examples:
-          #  compiler-v1.2.3 -> component=compiler, version=1.2.3
-          #  runtime-v1.2.3  -> component=runtime,  version=1.2.3
-          #  v1.2.3          -> component=ALL,      version=1.2.3
           if [[ "$TAG" =~ ^([a-zA-Z0-9_-]+)-v([0-9]+\.[0-9]+\.[0-9].*)$ ]]; then
             COMP="${BASH_REMATCH[1]}"
             VER="${BASH_REMATCH[2]}"
@@ -101,16 +90,13 @@ jobs:
           set -euo pipefail
           COMP="${{ steps.info.outputs.component }}"
           VER="${{ steps.info.outputs.version }}"
-
           echo "Publishing for component=$COMP version=$VER"
 
           if [[ "$COMP" == "ALL" ]]; then
-            # Monorepo-wide tag -> publish all changed packages
             pnpm -r publish --access public --no-git-checks --provenance || true
             exit 0
           fi
 
-          # Map component -> package name
           case "$COMP" in
             compiler)    PKG="@lyra-dev/compiler" ;;
             runtime)     PKG="@lyra-dev/runtime" ;;
@@ -119,5 +105,4 @@ jobs:
             *) echo "Unknown component: $COMP"; exit 1 ;;
           esac
 
-          # Only publish that one package
           pnpm -r --filter "$PKG" publish --access public --no-git-checks --provenance
