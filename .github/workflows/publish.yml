@@ -14,7 +14,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write
+  id-token: write # for npm provenance
 
 jobs:
   publish:
@@ -24,7 +24,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      # 1) Node first (adds corepack too)
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -32,11 +35,26 @@ jobs:
           registry-url: "https://registry.npmjs.org"
           cache: pnpm
 
+      # 2) Install pnpm v9
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
           run_install: false
+
+      # 2b) Corepack fallback (safety)
+      - name: Ensure pnpm via Corepack (fallback)
+        run: |
+          if ! command -v pnpm >/dev/null 2>&1; then
+            corepack enable
+            corepack prepare pnpm@9 --activate
+          fi
+
+      # 3) Verify pnpm is on PATH
+      - name: Check pnpm
+        run: |
+          which pnpm
+          pnpm --version
 
       - name: Install deps
         run: pnpm install --frozen-lockfile
@@ -45,7 +63,9 @@ jobs:
         run: pnpm -r build
 
       - name: Set npm token
-        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+          echo "always-auth=true" >> ~/.npmrc
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -58,9 +78,9 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
           # Examples:
-          #  compiler-v1.2.3  -> component=compiler, version=1.2.3
-          #  runtime-v1.2.3    -> component=runtime,  version=1.2.3
-          #  v1.2.3            -> component=ALL,      version=1.2.3
+          #  compiler-v1.2.3 -> component=compiler, version=1.2.3
+          #  runtime-v1.2.3  -> component=runtime,  version=1.2.3
+          #  v1.2.3          -> component=ALL,      version=1.2.3
           if [[ "$TAG" =~ ^([a-zA-Z0-9_-]+)-v([0-9]+\.[0-9]+\.[0-9].*)$ ]]; then
             COMP="${BASH_REMATCH[1]}"
             VER="${BASH_REMATCH[2]}"
@@ -90,7 +110,7 @@ jobs:
             exit 0
           fi
 
-          # Map component -> package name (adjust if your names differ)
+          # Map component -> package name
           case "$COMP" in
             compiler)    PKG="@lyra-dev/compiler" ;;
             runtime)     PKG="@lyra-dev/runtime" ;;
