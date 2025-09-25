@@ -14,12 +14,14 @@ on:
 
 permissions:
   contents: read
-  id-token: write # needed for --provenance
+  id-token: write # for --provenance
 
 jobs:
   publish:
     name: Publish to npm
     runs-on: ubuntu-latest
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }} # <-- add your secret in repo settings
 
     steps:
       - name: Checkout
@@ -27,7 +29,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Node first (Corepack included)
+      # Node first (Corepack comes with Node 20)
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -35,7 +37,7 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: pnpm
 
-      # Install pnpm via Corepack (most reliable on GH runners)
+      # Install & activate pnpm via Corepack (most reliable)
       - name: Enable Corepack & activate pnpm
         run: |
           set -euxo pipefail
@@ -51,9 +53,7 @@ jobs:
       - name: Build all
         run: pnpm -r build
 
-      - name: Set npm token
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Set npm token & verify auth
         run: |
           set -euxo pipefail
           test -n "${NPM_TOKEN}"
@@ -70,6 +70,9 @@ jobs:
           TAG="${{ github.event.release.tag_name || github.ref_name }}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
+          # compiler-v1.2.3 -> component=compiler, version=1.2.3
+          # runtime-v1.2.3  -> component=runtime,  version=1.2.3
+          # v1.2.3          -> component=ALL,      version=1.2.3
           if [[ "$TAG" =~ ^([a-zA-Z0-9_-]+)-v([0-9]+\.[0-9]+\.[0-9].*)$ ]]; then
             COMP="${BASH_REMATCH[1]}"
             VER="${BASH_REMATCH[2]}"
