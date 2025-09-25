@@ -29,15 +29,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Node first (Corepack comes with Node 20)
+      # Setup Node first without cache to avoid pnpm dependency
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
-          cache: pnpm
 
-      # Install & activate pnpm via Corepack (most reliable)
+      # Enable pnpm via Corepack BEFORE trying to use it
       - name: Enable Corepack & activate pnpm
         run: |
           set -euxo pipefail
@@ -46,6 +45,20 @@ jobs:
           which pnpm
           pnpm --version
           echo "PATH=$PATH"
+
+      # Now setup cache manually with pnpm available
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install deps
         run: pnpm install --frozen-lockfile
