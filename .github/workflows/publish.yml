@@ -2,12 +2,12 @@ name: Publish
 
 on:
   release:
-    types: [published] # only run on GitHub Release
-  workflow_dispatch: {} # manual run (debug-only)
+    types: [published] # run when a GitHub Release is published
+  workflow_dispatch: {} # allow manual runs (useful for debugging)
 
 permissions:
   contents: read
-  id-token: write # for --provenance
+  id-token: write # needed for --provenance
 
 jobs:
   publish:
@@ -30,12 +30,14 @@ jobs:
           git rev-parse HEAD
           git tag --points-at HEAD || true
 
+      # Node first (Corepack ships with Node 20)
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
+      # Install & activate pnpm via Corepack (reliable on GH runners)
       - name: Enable Corepack & activate pnpm
         run: |
           set -euxo pipefail
@@ -44,6 +46,7 @@ jobs:
           which pnpm
           pnpm --version
 
+      # Cache pnpm store
       - name: Get pnpm store directory
         run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
@@ -58,18 +61,24 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
-      # Build ONLY the publishable packages
+      # Build ONLY the publishable packages (not the example app)
       - name: Build packages (workspace)
         run: pnpm -r -F "@lyra-dev/*" build
 
+      # Write auth to the npm config file npm actually reads (fixes 401)
       - name: Set npm token & verify auth
         run: |
           set -euxo pipefail
           test -n "${NPM_TOKEN}"
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-          echo "always-auth=true" >> ~/.npmrc
+
+          CFG="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+          {
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}"
+            echo "always-auth=true"
+          } > "$CFG"
+
+          npm config get registry
           npm whoami
-          npm ping
 
       - name: Determine component & version from tag/release
         id: info
@@ -77,6 +86,10 @@ jobs:
           set -euo pipefail
           TAG="${{ github.event.release.tag_name || github.ref_name }}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          # compiler-v1.2.3 -> component=compiler, version=1.2.3
+          # runtime-v1.2.3  -> component=runtime,  version=1.2.3
+          # v1.2.3          -> component=ALL,      version=1.2.3
           if [[ "$TAG" =~ ^([a-zA-Z0-9_-]+)-v([0-9]+\.[0-9]+\.[0-9].*)$ ]]; then
             COMP="${BASH_REMATCH[1]}"; VER="${BASH_REMATCH[2]}"
           elif [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9].*)$ ]]; then
@@ -84,6 +97,7 @@ jobs:
           else
             echo "Unrecognized tag format: $TAG"; exit 1
           fi
+
           echo "component=$COMP" >> "$GITHUB_OUTPUT"
           echo "version=$VER" >> "$GITHUB_OUTPUT"
 
