@@ -63,12 +63,8 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
-      - name: Build packages in dependency order
-        run: |
-          # Build all publishable packages first (they have proper names, not private)
-          pnpm -r --filter='!{lyra-todos-example}' build
-          # Then build examples
-          pnpm -r --filter='{lyra-todos-example}' build
+      - name: Build all
+        run: pnpm -r build
 
       - name: Set npm token & verify auth
         run: |
