@@ -252,9 +252,88 @@ describe("vite plugin", () => {
     expect(res && typeof res.code === "string").toBe(true);
 
     expect(warns).toHaveLength(1);
-    // message uses `file` (h.tsx) and has no code after tag
     expect(warns[0]).toContain(" (in h.tsx)");
     expect(warns[0].startsWith("LYRA_W: ")).toBe(true);
+
+    vi.doUnmock("@lyra-dev/compiler");
+  });
+
+  it("covers all diagnostic formatting branches (info severity, code prefix, line/col)", async () => {
+    vi.resetModules();
+
+    // Mock compiler to return diagnostics that exercise uncovered branches
+    vi.doMock("@lyra-dev/compiler", () => ({
+      compile: vi.fn(() => ({
+        code: "export default 0;",
+        map: null,
+        diagnostics: [
+          {
+            code: "INFO_001",
+            message: "info with code and position",
+            severity: "info" as const,
+            filename: "test.tsx",
+            start: { line: 10, column: 5 },
+          },
+          {
+            message: "info without code but with position",
+            severity: "info" as const,
+            file: "other.tsx",
+            start: { line: 2, column: 1 },
+          },
+          {
+            code: "WARN_002",
+            message: "warn with code",
+            severity: "warn" as const,
+            filename: "warn.tsx",
+          },
+          {
+            message: "diagnostic with no filename or file",
+            severity: "warn" as const,
+            // No filename or file property - will fallback to id
+          },
+        ],
+        meta: { symbols: [], islands: false, a11yErrors: 0, transformed: true },
+      })),
+    }));
+
+    const mockedPlugin: () => Plugin = (await import("./index")).default;
+    const p = mockedPlugin();
+
+    const warns: string[] = [];
+    const ctx: Ctx = {
+      warn: (msg: string) => warns.push(msg),
+      error: () => {},
+    };
+
+    const transform = p.transform as TransformFn;
+    const res = await (transform as Exclude<TransformFn, undefined>).call(
+      ctx,
+      "export default 0",
+      "test.lyra.tsx",
+    );
+
+    expect(res && typeof res.code === "string").toBe(true);
+
+    // All diagnostics should be warnings since info and warn both go to warn()
+    expect(warns).toHaveLength(4);
+
+    // Check that LYRA_I tag is used for info severity
+    expect(warns[0]).toContain(
+      "LYRA_I INFO_001: info with code and position (in test.tsx:10:5)",
+    );
+
+    // Check that LYRA_I is used when no code is present, and line:col formatting works
+    expect(warns[1]).toContain(
+      "LYRA_I: info without code but with position (in other.tsx:2:1)",
+    );
+
+    // Check that LYRA_W with code works (no line:col since start is missing)
+    expect(warns[2]).toContain("LYRA_W WARN_002: warn with code (in warn.tsx)");
+
+    // Check that fallback to id works when neither filename nor file is provided
+    expect(warns[3]).toContain(
+      "LYRA_W: diagnostic with no filename or file (in test.lyra.tsx)",
+    );
 
     vi.doUnmock("@lyra-dev/compiler");
   });

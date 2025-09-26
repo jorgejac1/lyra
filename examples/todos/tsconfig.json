@@ -2,11 +2,9 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "baseUrl": ".",
-    "paths": {
-      "@lyra/runtime": ["../../packages/runtime/src/index.ts"],
-      "@lyra/compiler": ["../../packages/compiler/src/index.ts"],
-      "@lyra/vite-plugin": ["../../packages/vite-plugin/src/index.ts"]
-    }
+    "types": ["vite/client"],
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
   "include": ["src", "vite.config.ts"]
 }
