@@ -63,8 +63,13 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
-      - name: Build all
-        run: pnpm -r build
+      # 🔧 Build workspace packages first (compiler → runtime → vite-plugin → cli)
+      - name: Build packages (workspace)
+        run: pnpm -r -F "@lyra-dev/*" build
+
+      # 🔧 Then build the example app (now that plugin dist/ exists)
+      - name: Build example app
+        run: pnpm -C examples/todos build
 
       - name: Set npm token & verify auth
         run: |

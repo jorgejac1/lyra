@@ -15,15 +15,18 @@
   "files": [
     "dist"
   ],
+  "dependencies": {
+    "@lyra-dev/compiler": "workspace:*"
+  },
   "peerDependencies": {
     "vite": "^5.4.20"
   },
   "devDependencies": {
-    "typescript": "^5.4.0",
-    "@types/node": "^22.18.6"
+    "@types/node": "^22.18.6",
+    "typescript": "^5.4.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -b",
     "postbuild": "node -e \"require('node:fs').writeFileSync('dist/index.cjs', \\\"module.exports = require('./index.js').default;\\\\n\\\")\"",
     "prepack": "pnpm build"
   }
