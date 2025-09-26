@@ -1,6 +1,6 @@
 {
   "name": "lyra-todos-example",
-  "private": true,
+  "private": false,
   "scripts": {
     "dev": "vite",
     "build": "vite build",

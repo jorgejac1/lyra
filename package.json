@@ -1,7 +1,7 @@
 {
   "name": "lyra-dev",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "type": "module",
   "scripts": {
     "precommit": "pnpm run lint:staged && pnpm run typecheck && pnpm test",
