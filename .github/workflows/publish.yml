@@ -21,7 +21,7 @@ jobs:
     name: Publish to npm
     runs-on: ubuntu-latest
     env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }} # <-- add your secret in repo settings
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     steps:
       - name: Checkout

@@ -139,4 +139,123 @@ describe("vite plugin", () => {
     // Clean up the mock so other tests aren't affected
     vi.doUnmock("@lyra-dev/compiler");
   });
+
+  it("transforms .lyra.ts (not .tsx), preserves map, and exposes wrapper exports", async () => {
+    vi.resetModules();
+
+    // Mock compiler to return code + minimal source map
+    vi.doMock("@lyra-dev/compiler", () => {
+      return {
+        compile: vi.fn(() => ({
+          code: "export default 123;",
+          map: { mappings: "" }, // vite accepts this shape
+          diagnostics: [],
+          meta: {
+            symbols: [],
+            islands: false,
+            a11yErrors: 0,
+            transformed: true,
+          },
+        })),
+      };
+    });
+
+    const mockedPlugin: () => Plugin = (await import("./index")).default;
+    const p = mockedPlugin();
+
+    const ctx: Ctx = { warn: () => {}, error: () => {} };
+    const transform = p.transform as TransformFn;
+    const res = await (transform as Exclude<TransformFn, undefined>).call(
+      ctx,
+      "export default 123",
+      "bar.lyra.ts",
+    );
+
+    expect(res && typeof res !== "string" && typeof res.code === "string").toBe(
+      true,
+    );
+    if (res && typeof res !== "string") {
+      // wrapper import+export present
+      expect(res.code).toContain(
+        `import { mount, signal } from '@lyra-dev/runtime'`,
+      );
+      expect(res.code).toContain(`export { mount, signal }`);
+      // map forwarded
+      expect(res.map).toEqual({ mappings: "" });
+    }
+
+    vi.doUnmock("@lyra-dev/compiler");
+  });
+
+  it("handles missing diagnostics (undefined) with no logs", async () => {
+    vi.resetModules();
+
+    // No `diagnostics` field -> exercises `res.diagnostics ?? []`
+    vi.doMock("@lyra-dev/compiler", () => ({
+      compile: vi.fn(() => ({
+        code: "export default 0;",
+        map: null,
+        // diagnostics intentionally omitted
+        meta: { symbols: [], islands: false, a11yErrors: 0, transformed: true },
+      })),
+    }));
+
+    const mockedPlugin: () => Plugin = (await import("./index")).default;
+    const p = mockedPlugin();
+
+    const warn = vi.fn();
+    const error = vi.fn();
+    const ctx: Ctx = { warn, error };
+
+    const transform = p.transform as TransformFn;
+    const res = await (transform as Exclude<TransformFn, undefined>).call(
+      ctx,
+      "export default 0",
+      "no-diags.lyra.tsx",
+    );
+
+    expect(res && typeof res.code === "string").toBe(true);
+    expect(warn).not.toHaveBeenCalled();
+    expect(error).not.toHaveBeenCalled();
+
+    vi.doUnmock("@lyra-dev/compiler");
+  });
+
+  it("uses `file` when `filename` is missing and omits code prefix", async () => {
+    vi.resetModules();
+
+    // Only `file` provided; no `code` -> exercises filename/file chain and code-less branch
+    vi.doMock("@lyra-dev/compiler", () => ({
+      compile: vi.fn(() => ({
+        code: "export default 0;",
+        map: null,
+        diagnostics: [
+          { message: "file-only", file: "h.tsx", severity: "warn" as const },
+        ],
+        meta: { symbols: [], islands: false, a11yErrors: 0, transformed: true },
+      })),
+    }));
+
+    const mockedPlugin: () => Plugin = (await import("./index")).default;
+    const p = mockedPlugin();
+
+    const warns: string[] = [];
+    const ctx: Ctx = { warn: (m) => warns.push(m), error: () => {} };
+
+    const transform = p.transform as TransformFn;
+    const res = await (transform as Exclude<TransformFn, undefined>).call(
+      ctx,
+      "export default 0",
+      "z.lyra.tsx",
+    );
+
+    expect(res && typeof res.code === "string").toBe(true);
+
+    expect(warns).toHaveLength(1);
+    // message uses `file` (h.tsx) and has no code after tag
+    expect(warns[0]).toContain(" (in h.tsx)");
+    expect(warns[0].startsWith("LYRA_W: ")).toBe(true);
+
+    vi.doUnmock("@lyra-dev/compiler");
+  });
 });
