@@ -2,8 +2,23 @@ name: Publish
 
 on:
   release:
-    types: [published] # run when a GitHub Release is published
-  workflow_dispatch: {} # allow manual runs (useful for debugging)
+    types: [published] # auto publish on GitHub Release
+  workflow_dispatch: # manual publish (pick package + version)
+    inputs:
+      component:
+        description: "Package to publish"
+        required: true
+        type: choice
+        options:
+          - compiler
+          - runtime
+          - vite-plugin
+          - cli
+          - ALL
+      version:
+        description: "Version to publish (e.g. 1.0.3). Used only for manual runs."
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -30,14 +45,13 @@ jobs:
           git rev-parse HEAD
           git tag --points-at HEAD || true
 
-      # Node first (Corepack ships with Node 20)
+      # Node + pnpm via Corepack
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
-      # Install & activate pnpm via Corepack (reliable on GH runners)
       - name: Enable Corepack & activate pnpm
         run: |
           set -euxo pipefail
@@ -46,7 +60,7 @@ jobs:
           which pnpm
           pnpm --version
 
-      # Cache pnpm store
+      # pnpm cache
       - name: Get pnpm store directory
         run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
@@ -61,11 +75,11 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
-      # Build ONLY the publishable packages (not the example app)
+      # Build ONLY the publishable workspace packages
       - name: Build packages (workspace)
         run: pnpm -r -F "@lyra-dev/*" build
 
-      # Write auth to the npm config file npm actually reads (fixes 401)
+      # Auth (write to config npm actually uses on Actions)
       - name: Set npm token & verify auth
         run: |
           set -euxo pipefail
@@ -80,28 +94,40 @@ jobs:
           npm config get registry
           npm whoami
 
-      - name: Determine component & version from tag/release
+      # Determine component & version
+      - name: Determine component & version from event
         id: info
+        shell: bash
         run: |
           set -euo pipefail
-          TAG="${{ github.event.release.tag_name || github.ref_name }}"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-          # compiler-v1.2.3 -> component=compiler, version=1.2.3
-          # runtime-v1.2.3  -> component=runtime,  version=1.2.3
-          # v1.2.3          -> component=ALL,      version=1.2.3
-          if [[ "$TAG" =~ ^([a-zA-Z0-9_-]+)-v([0-9]+\.[0-9]+\.[0-9].*)$ ]]; then
-            COMP="${BASH_REMATCH[1]}"; VER="${BASH_REMATCH[2]}"
-          elif [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9].*)$ ]]; then
-            COMP="ALL"; VER="${BASH_REMATCH[1]}"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            COMP="${{ github.event.inputs.component }}"
+            VER="${{ github.event.inputs.version }}"
+            if [[ -z "${COMP}" || -z "${VER}" ]]; then
+              echo "Missing component/version inputs"; exit 1
+            fi
+            # basic semver sanity (allows prereleases)
+            if ! [[ "$VER" =~ ^[0-9]+\.[0-9]+\.[0-9]([0-9A-Za-z\.-]*)?$ ]]; then
+              echo "Invalid version: $VER"; exit 1
+            fi
           else
-            echo "Unrecognized tag format: $TAG"; exit 1
+            TAG="${{ github.event.release.tag_name || github.ref_name }}"
+            if [[ "$TAG" =~ ^([a-zA-Z0-9_-]+)-v([0-9]+\.[0-9]+\.[0-9].*)$ ]]; then
+              COMP="${BASH_REMATCH[1]}"; VER="${BASH_REMATCH[2]}"
+            elif [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9].*)$ ]]; then
+              COMP="ALL"; VER="${BASH_REMATCH[1]}"
+            else
+              echo "Unrecognized tag format: $TAG"; exit 1
+            fi
           fi
 
           echo "component=$COMP" >> "$GITHUB_OUTPUT"
-          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "version=$VER"   >> "$GITHUB_OUTPUT"
+          echo "Resolved component=$COMP version=$VER"
 
       - name: Publish package(s)
+        shell: bash
         run: |
           set -euo pipefail
           COMP="${{ steps.info.outputs.component }}"
