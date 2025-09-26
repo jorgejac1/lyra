@@ -29,14 +29,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Setup Node first without cache to avoid pnpm dependency
+      # Node first; Corepack gives us pnpm
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
-      # Enable pnpm via Corepack BEFORE trying to use it
       - name: Enable Corepack & activate pnpm
         run: |
           set -euxo pipefail
@@ -44,13 +43,11 @@ jobs:
           corepack prepare pnpm@9 --activate
           which pnpm
           pnpm --version
-          echo "PATH=$PATH"
 
-      # Now setup cache manually with pnpm available
+      # pnpm cache
       - name: Get pnpm store directory
         shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
       - name: Setup pnpm cache
         uses: actions/cache@v3
@@ -63,12 +60,13 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
-      # 🔧 Build workspace packages first (compiler → runtime → vite-plugin → cli)
+      # Build only publishable packages
       - name: Build packages (workspace)
         run: pnpm -r -F "@lyra-dev/*" build
 
-      # 🔧 Then build the example app (now that plugin dist/ exists)
+      # Optional: build example only when triggered manually
       - name: Build example app
+        if: github.event_name == 'workflow_dispatch'
         run: pnpm -C examples/todos build
 
       - name: Set npm token & verify auth
@@ -87,21 +85,13 @@ jobs:
           set -euo pipefail
           TAG="${{ github.event.release.tag_name || github.ref_name }}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
-          # compiler-v1.2.3 -> component=compiler, version=1.2.3
-          # runtime-v1.2.3  -> component=runtime,  version=1.2.3
-          # v1.2.3          -> component=ALL,      version=1.2.3
           if [[ "$TAG" =~ ^([a-zA-Z0-9_-]+)-v([0-9]+\.[0-9]+\.[0-9].*)$ ]]; then
-            COMP="${BASH_REMATCH[1]}"
-            VER="${BASH_REMATCH[2]}"
+            COMP="${BASH_REMATCH[1]}"; VER="${BASH_REMATCH[2]}"
           elif [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9].*)$ ]]; then
-            COMP="ALL"
-            VER="${BASH_REMATCH[1]}"
+            COMP="ALL"; VER="${BASH_REMATCH[1]}"
           else
-            echo "Unrecognized tag format: $TAG"
-            exit 1
+            echo "Unrecognized tag format: $TAG"; exit 1
           fi
-
           echo "component=$COMP" >> "$GITHUB_OUTPUT"
           echo "version=$VER" >> "$GITHUB_OUTPUT"
 
