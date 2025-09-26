@@ -6,18 +6,24 @@ export default defineConfig(async () => {
   const { default: lyraPlugin } = await import("@lyra-dev/vite-plugin");
 
   return {
-    plugins: [
-      preact(),
-      lyraPlugin() as unknown as PluginOption, // cast only to appease TS if needed
-    ],
+    plugins: [preact(), lyraPlugin() as unknown as PluginOption],
     resolve: {
+      extensions: [
+        ".mjs",
+        ".js",
+        ".ts",
+        ".jsx",
+        ".tsx",
+        ".json",
+        ".lyra.tsx",
+        ".lyra.ts",
+      ],
       alias: {
         "@lyra/runtime": "@lyra-dev/runtime",
         "@lyra/compiler": "@lyra-dev/compiler",
         "@lyra/vite-plugin": "@lyra-dev/vite-plugin",
       },
     },
-    // belt & suspenders so Vite doesn't try to prebundle/require it
     optimizeDeps: {
       exclude: ["@lyra-dev/vite-plugin"],
     },

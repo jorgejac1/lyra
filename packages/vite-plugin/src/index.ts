@@ -24,6 +24,24 @@ export default function lyraPlugin(): Plugin {
     name: "vite-plugin-lyra",
     enforce: "pre",
 
+    configResolved(config) {
+      // Add .lyra.tsx and .lyra.ts to Vite's resolve extensions
+      config.resolve.extensions = config.resolve.extensions || [
+        ".mjs",
+        ".js",
+        ".ts",
+        ".jsx",
+        ".tsx",
+        ".json",
+      ];
+      if (!config.resolve.extensions.includes(".lyra.tsx")) {
+        config.resolve.extensions.push(".lyra.tsx");
+      }
+      if (!config.resolve.extensions.includes(".lyra.ts")) {
+        config.resolve.extensions.push(".lyra.ts");
+      }
+    },
+
     async transform(
       this: { error(msg: string): never; warn(msg: string): void },
       code: string,
