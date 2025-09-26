@@ -2,23 +2,19 @@
   "packages": {
     "packages/compiler": {
       "release-type": "node",
-      "package-name": "@lyra-dev/compiler",
-      "release-as": "1.0.1"
+      "package-name": "@lyra-dev/compiler"
     },
     "packages/runtime": {
       "release-type": "node",
-      "package-name": "@lyra-dev/runtime",
-      "release-as": "1.0.1"
+      "package-name": "@lyra-dev/runtime"
     },
     "packages/vite-plugin": {
       "release-type": "node",
-      "package-name": "@lyra-dev/vite-plugin",
-      "release-as": "1.0.2"
+      "package-name": "@lyra-dev/vite-plugin"
     },
     "packages/cli": {
       "release-type": "node",
-      "package-name": "@lyra-dev/cli",
-      "release-as": "1.0.1"
+      "package-name": "@lyra-dev/cli"
     }
   },
   "plugins": [{ "type": "node-workspace" }],
