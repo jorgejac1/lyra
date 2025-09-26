@@ -1,6 +1,9 @@
 {
   "name": "lyra-todos-example",
-  "private": false,
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",

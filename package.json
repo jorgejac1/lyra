@@ -1,7 +1,10 @@
 {
   "name": "lyra-dev",
   "version": "0.1.0",
-  "private": false,
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "type": "module",
   "scripts": {
     "precommit": "pnpm run lint:staged && pnpm run typecheck && pnpm test",

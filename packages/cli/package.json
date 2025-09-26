@@ -2,6 +2,10 @@
   "name": "@lyra-dev/cli",
   "version": "1.0.0",
   "type": "module",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "bin": {
     "lyra": "dist/index.js"
   },
