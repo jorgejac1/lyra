@@ -87,12 +87,17 @@ jobs:
 
           CFG="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
           {
+            echo "@lyra-dev:registry=https://registry.npmjs.org/"
             echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}"
             echo "always-auth=true"
           } > "$CFG"
 
           npm config get registry
-          npm whoami
+          npm config get @lyra-dev:registry
+          npm whoami || true
+          npm ping
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # Determine component & version
       - name: Determine component & version from event
@@ -107,8 +112,8 @@ jobs:
             if [[ -z "${COMP}" || -z "${VER}" ]]; then
               echo "Missing component/version inputs"; exit 1
             fi
-            # basic semver sanity (allows prereleases)
-            if ! [[ "$VER" =~ ^[0-9]+\.[0-9]+\.[0-9]([0-9A-Za-z\.-]*)?$ ]]; then
+            # basic semver sanity (allows prereleases/build metadata)
+            if ! [[ "$VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+([0-9A-Za-z\.\-\+]*)?$ ]]; then
               echo "Invalid version: $VER"; exit 1
             fi
           else
