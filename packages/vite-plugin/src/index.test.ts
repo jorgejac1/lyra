@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import type { Plugin, TransformResult } from "vite";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import type { Plugin, TransformResult, ResolvedConfig } from "vite";
 import plugin from "./index";
 
 type Ctx = { error(msg: string): never | void; warn(msg: string): void };
@@ -12,11 +12,30 @@ type TransformFn =
     ) => TransformResult | null | Promise<TransformResult | null>)
   | undefined;
 
+// Minimal shape we care about for configResolved tests
+type Resolvable = { resolve: { extensions?: string[] } };
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+/** Invoke configResolved regardless of function vs. { handler } form (no `any`). */
+function runConfigResolved(p: Plugin, cfg: Resolvable): void {
+  const hook = p.configResolved;
+  expect(hook).toBeTruthy();
+  // Cast once to the Vite type; operate on the same object reference
+  const rc = cfg as unknown as ResolvedConfig;
+  if (typeof hook === "function") {
+    (hook as (c: ResolvedConfig) => void)(rc);
+  } else {
+    (hook as { handler: (c: ResolvedConfig) => void }).handler(rc);
+  }
+}
+
 describe("vite plugin", () => {
   it("transforms .lyra.tsx code", async () => {
     const p: Plugin = plugin();
 
-    // Add aria-label to avoid a11y compiler error
     const code = `export default function X(){
       return <button aria-label="ok" on:click={fn}></button>;
     }`;
@@ -66,10 +85,8 @@ describe("vite plugin", () => {
   });
 
   it("forwards diagnostics to warn/error (covers the loop)", async () => {
-    // Isolate module state so our mock is used only in this test
     vi.resetModules();
 
-    // Mock @lyra-dev/compiler to return 1 warn + 1 error diagnostic
     vi.doMock("@lyra-dev/compiler", () => {
       return {
         compile: vi.fn(() => ({
@@ -101,7 +118,6 @@ describe("vite plugin", () => {
       };
     });
 
-    // Re-import plugin so it picks up the mocked compiler
     const mockedPlugin: () => Plugin = (await import("./index")).default;
     const p = mockedPlugin();
 
@@ -112,7 +128,6 @@ describe("vite plugin", () => {
       warn: (msg: string) => {
         warns.push(msg);
       },
-      // Do not throw here; we want to assert the call happened
       error: (msg: string) => {
         errors.push(msg);
       },
@@ -129,26 +144,23 @@ describe("vite plugin", () => {
 
     expect(res && typeof res.code === "string").toBe(true);
 
-    // Both branches exercised
     expect(warns).toHaveLength(1);
     expect(warns[0]).toContain("LYRA_W: a warning (in f.tsx)");
 
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain("LYRA_E: an error (in g.tsx)");
 
-    // Clean up the mock so other tests aren't affected
     vi.doUnmock("@lyra-dev/compiler");
   });
 
   it("transforms .lyra.ts (not .tsx), preserves map, and exposes wrapper exports", async () => {
     vi.resetModules();
 
-    // Mock compiler to return code + minimal source map
     vi.doMock("@lyra-dev/compiler", () => {
       return {
         compile: vi.fn(() => ({
           code: "export default 123;",
-          map: { mappings: "" }, // vite accepts this shape
+          map: { mappings: "" },
           diagnostics: [],
           meta: {
             symbols: [],
@@ -175,12 +187,10 @@ describe("vite plugin", () => {
       true,
     );
     if (res && typeof res !== "string") {
-      // wrapper import+export present
       expect(res.code).toContain(
         `import { mount, signal } from '@lyra-dev/runtime'`,
       );
       expect(res.code).toContain(`export { mount, signal }`);
-      // map forwarded
       expect(res.map).toEqual({ mappings: "" });
     }
 
@@ -190,12 +200,10 @@ describe("vite plugin", () => {
   it("handles missing diagnostics (undefined) with no logs", async () => {
     vi.resetModules();
 
-    // No `diagnostics` field -> exercises `res.diagnostics ?? []`
     vi.doMock("@lyra-dev/compiler", () => ({
       compile: vi.fn(() => ({
         code: "export default 0;",
         map: null,
-        // diagnostics intentionally omitted
         meta: { symbols: [], islands: false, a11yErrors: 0, transformed: true },
       })),
     }));
@@ -224,7 +232,6 @@ describe("vite plugin", () => {
   it("uses `file` when `filename` is missing and omits code prefix", async () => {
     vi.resetModules();
 
-    // Only `file` provided; no `code` -> exercises filename/file chain and code-less branch
     vi.doMock("@lyra-dev/compiler", () => ({
       compile: vi.fn(() => ({
         code: "export default 0;",
@@ -258,10 +265,9 @@ describe("vite plugin", () => {
     vi.doUnmock("@lyra-dev/compiler");
   });
 
-  it("covers all diagnostic formatting branches (info severity, code prefix, line/col)", async () => {
+  it("covers info severity, code prefix/no-code, line/col, and fallback to id", async () => {
     vi.resetModules();
 
-    // Mock compiler to return diagnostics that exercise uncovered branches
     vi.doMock("@lyra-dev/compiler", () => ({
       compile: vi.fn(() => ({
         code: "export default 0;",
@@ -289,7 +295,6 @@ describe("vite plugin", () => {
           {
             message: "diagnostic with no filename or file",
             severity: "warn" as const,
-            // No filename or file property - will fallback to id
           },
         ],
         meta: { symbols: [], islands: false, a11yErrors: 0, transformed: true },
@@ -314,27 +319,91 @@ describe("vite plugin", () => {
 
     expect(res && typeof res.code === "string").toBe(true);
 
-    // All diagnostics should be warnings since info and warn both go to warn()
     expect(warns).toHaveLength(4);
-
-    // Check that LYRA_I tag is used for info severity
     expect(warns[0]).toContain(
       "LYRA_I INFO_001: info with code and position (in test.tsx:10:5)",
     );
-
-    // Check that LYRA_I is used when no code is present, and line:col formatting works
     expect(warns[1]).toContain(
       "LYRA_I: info without code but with position (in other.tsx:2:1)",
     );
-
-    // Check that LYRA_W with code works (no line:col since start is missing)
     expect(warns[2]).toContain("LYRA_W WARN_002: warn with code (in warn.tsx)");
-
-    // Check that fallback to id works when neither filename nor file is provided
     expect(warns[3]).toContain(
       "LYRA_W: diagnostic with no filename or file (in test.lyra.tsx)",
     );
 
     vi.doUnmock("@lyra-dev/compiler");
+  });
+});
+
+describe("vite plugin • configResolved extensions", () => {
+  it("adds .lyra.tsx and .lyra.ts when missing", () => {
+    const p: Plugin = plugin();
+
+    const cfg: Resolvable = {
+      resolve: {
+        extensions: [".mjs", ".js", ".ts", ".jsx", ".tsx", ".json"],
+      },
+    };
+
+    expect(cfg.resolve.extensions).not.toContain(".lyra.tsx");
+    expect(cfg.resolve.extensions).not.toContain(".lyra.ts");
+
+    runConfigResolved(p, cfg);
+
+    const exts = cfg.resolve.extensions ?? [];
+    expect(exts).toContain(".lyra.tsx");
+    expect(exts).toContain(".lyra.ts");
+  });
+
+  it("does not duplicate entries if .lyra.tsx / .lyra.ts already exist", () => {
+    const p: Plugin = plugin();
+
+    const cfg: Resolvable = {
+      resolve: {
+        extensions: [
+          ".mjs",
+          ".js",
+          ".ts",
+          ".jsx",
+          ".tsx",
+          ".json",
+          ".lyra.tsx",
+          ".lyra.ts",
+        ],
+      },
+    };
+
+    runConfigResolved(p, cfg);
+
+    const exts = cfg.resolve.extensions ?? [];
+    const count = (ext: string) => exts.filter((e) => e === ext).length;
+
+    expect(count(".lyra.tsx")).toBe(1);
+    expect(count(".lyra.ts")).toBe(1);
+  });
+
+  it("initializes extensions when undefined and appends lyra ones", () => {
+    const p: Plugin = plugin();
+
+    const cfg: Resolvable = {
+      resolve: {},
+    };
+
+    runConfigResolved(p, cfg);
+
+    const exts = cfg.resolve.extensions ?? [];
+    expect(Array.isArray(exts)).toBe(true);
+    expect(exts).toEqual(
+      expect.arrayContaining([
+        ".mjs",
+        ".js",
+        ".ts",
+        ".jsx",
+        ".tsx",
+        ".json",
+        ".lyra.tsx",
+        ".lyra.ts",
+      ]),
+    );
   });
 });

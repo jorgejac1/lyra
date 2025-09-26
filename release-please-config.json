@@ -1,29 +1,27 @@
 {
-  "bootstrap-sha": "",
   "packages": {
     "packages/compiler": {
       "release-type": "node",
-      "package-name": "@lyra-dev/compiler"
+      "package-name": "@lyra-dev/compiler",
+      "release-as": "1.0.1"
     },
     "packages/runtime": {
       "release-type": "node",
-      "package-name": "@lyra-dev/runtime"
+      "package-name": "@lyra-dev/runtime",
+      "release-as": "1.0.1"
     },
     "packages/vite-plugin": {
       "release-type": "node",
-      "package-name": "@lyra-dev/vite-plugin"
+      "package-name": "@lyra-dev/vite-plugin",
+      "release-as": "1.0.2"
     },
     "packages/cli": {
       "release-type": "node",
-      "package-name": "@lyra-dev/cli"
+      "package-name": "@lyra-dev/cli",
+      "release-as": "1.0.1"
     }
   },
-  "plugins": [
-    {
-      "type": "node-workspace"
-    }
-  ],
-  "changelog-path": "CHANGELOG.md",
+  "plugins": [{ "type": "node-workspace" }],
   "separate-pull-requests": true,
   "include-component-in-tag": true
 }

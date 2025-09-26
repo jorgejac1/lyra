@@ -2,15 +2,8 @@ name: Publish
 
 on:
   release:
-    types: [published]
-  workflow_dispatch: {}
-  push:
-    tags:
-      - "compiler-v*"
-      - "runtime-v*"
-      - "vite-plugin-v*"
-      - "cli-v*"
-      - "v*"
+    types: [published] # only run on GitHub Release
+  workflow_dispatch: {} # manual run (debug-only)
 
 permissions:
   contents: read
@@ -29,7 +22,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Node first; Corepack gives us pnpm
+      - name: Debug ref
+        run: |
+          echo "event: $GITHUB_EVENT_NAME"
+          echo "ref:   $GITHUB_REF"
+          echo "sha:   $GITHUB_SHA"
+          git rev-parse HEAD
+          git tag --points-at HEAD || true
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -44,9 +44,7 @@ jobs:
           which pnpm
           pnpm --version
 
-      # pnpm cache
       - name: Get pnpm store directory
-        shell: bash
         run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
       - name: Setup pnpm cache
@@ -60,14 +58,9 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
-      # Build only publishable packages
+      # Build ONLY the publishable packages
       - name: Build packages (workspace)
         run: pnpm -r -F "@lyra-dev/*" build
-
-      # Optional: build example only when triggered manually
-      - name: Build example app
-        if: github.event_name == 'workflow_dispatch'
-        run: pnpm -C examples/todos build
 
       - name: Set npm token & verify auth
         run: |
@@ -80,7 +73,6 @@ jobs:
 
       - name: Determine component & version from tag/release
         id: info
-        shell: bash
         run: |
           set -euo pipefail
           TAG="${{ github.event.release.tag_name || github.ref_name }}"
@@ -96,7 +88,6 @@ jobs:
           echo "version=$VER" >> "$GITHUB_OUTPUT"
 
       - name: Publish package(s)
-        shell: bash
         run: |
           set -euo pipefail
           COMP="${{ steps.info.outputs.component }}"
