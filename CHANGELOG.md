@@ -9,20 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A11y rules**: LYRA_A11Y_002 (img alt), LYRA_A11Y_003 (button text), LYRA_A11Y_004 (form label association).
+- **A11y rules**: LYRA_A11Y_005 (anchor href), LYRA_A11Y_006 (positive tabindex), LYRA_A11Y_007 (empty headings), LYRA_A11Y_008 (iframe title).
+- **Diagnostic enhancements**: `docUrl` field, `formatDiagnostic()`, `formatCodeFrame()`, `offsetToLineColumn()` utilities.
+- **Transform diagnostics**: `LYRA_DIRECTIVE_STRING` warning when directives use string literals instead of expressions (replaces `console.warn`).
+- **CLI subcommands**: `lyra compile <file>` and `lyra a11y-check <file>` with codeframe output.
+- **Source map support**: V3 source maps via `generateSourceMap: true` in compile options.
+- **Runtime `batch()`**: Defer signal subscriber notifications until outermost batch completes.
+- **Runtime `computed()`**: Derived signals with explicit dependencies.
+- **Runtime `effect()`**: Reactive side-effect function with explicit dependency tracking; returns cleanup function.
+- **CI workflow**: `test.yml` with lint, typecheck, and test on Node 20/22 matrix.
+- **Vite plugin diagnostics**: Missing `@lyra-dev/runtime` detection, invalid import warnings, structured error overlay.
+- **Vite plugin options**: `LyraPluginOptions` type with `a11yLevel`, `include`, and `exclude` filtering.
 - Pre-commit hooks with Husky and lint-staged.
 - TypeScript project references for packages.
 - Initial JSDoc comments across compiler, runtime, and vite-plugin.
-- GitHub Actions workflow for linting, typecheck, and tests with coverage.
 
 ### Changed
 
+- CLI refactored to subcommand router with backward compatibility for `lyra <file>`.
+- Runtime `mount()` optimized to collect elements before processing (avoids mutation-during-traversal).
 - Compiler now supports env override `LYRA_A11Y=off` to disable accessibility checks.
 - Runtime `mount` refactored to remove all `any` usages and cover edge cases (`textarea`, fallback, ariaLabel null).
+- **Signal equality**: `signal.value` setter now uses `Object.is()` to skip notifications when the value hasn't changed (handles NaN, +0/-0 correctly).
+- **Transform diagnostics**: Directive string-literal warnings are now structured `Diagnostic` objects instead of `console.warn` calls.
+- **Package metadata**: Added `sideEffects: false`, `files`, `engines`, and `peerDependencies` to all package.json files.
 
 ### Fixed
 
 - TypeScript build errors due to `rootDir` and cross-package imports.
 - Coverage reports not including `rules.ts` and `reactivity.ts`.
+
+### Security
+
+- **Prototype pollution guard**: `mount()` now blocks `__proto__`, `constructor`, and `prototype` keys via `safeGet()` helper with `Object.prototype.hasOwnProperty.call()` check.
 
 ---
 

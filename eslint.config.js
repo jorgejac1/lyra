@@ -27,6 +27,7 @@ export default tseslint.config(
       'prettier/prettier': 'warn',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       '@typescript-eslint/consistent-type-imports': ['warn', { prefer: 'type-imports' }],
+      '@typescript-eslint/no-explicit-any': 'warn',
       'no-console': 'off',
       'no-debugger': 'warn',
     },

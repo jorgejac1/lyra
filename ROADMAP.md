@@ -10,6 +10,12 @@ Lyra’s mission is to improve **Developer Experience (DX)** while promoting **A
 - Initial publish of `@lyra-dev/compiler`, `@lyra-dev/runtime`, `@lyra-dev/vite-plugin`, and `@lyra-dev/cli`
 - CI workflow for building & publishing with provenance
 - First version of CLI + compiler builds
+- 8 a11y rules (001–008) with doc links, hints, and configurable severity
+- Signal equality check (`Object.is`), `effect()`, `batch()`, `computed()`
+- Prototype pollution guards in `mount()`
+- Transform diagnostics (`LYRA_DIRECTIVE_STRING`)
+- Vite plugin options (`LyraPluginOptions` with include/exclude/a11yLevel)
+- Package metadata improvements (`sideEffects`, `files`, `engines`, `peerDependencies`)
 
 ---
 
@@ -18,26 +24,30 @@ Lyra’s mission is to improve **Developer Experience (DX)** while promoting **A
 ### 1. Developer Experience (DX)
 
 - [ ] **Zero-config setup** → scaffold a project with `npx @lyra-dev/cli create my-app`
-- [ ] **Improved error messages** → human-friendly compiler/runtime errors with doc links
+- [x] **Improved error messages** → human-friendly compiler/runtime errors with doc links
 - [ ] **Plugin ecosystem** → allow community-driven extensions
 - [ ] **Hot-reload integration** for faster dev feedback
-- [ ] **Dev server diagnostics** → detect missing deps, invalid imports, etc.
+- [x] **Dev server diagnostics** → detect missing deps, invalid imports, etc.
 
 ### 2. Accessibility (A11y)
 
-- [ ] **Static analysis rules** in the compiler
+- [x] **Static analysis rules** in the compiler (8 rules)
   - Warn on `<img>` without `alt` text
   - Detect `<button>` without visible text
   - Flag missing form labels
-- [ ] **CLI accessibility audits** → `lyra a11y-check` command
+  - Detect `<a>` without `href`
+  - Flag positive `tabindex` values
+  - Detect empty headings (`<h1>`–`<h6>`)
+  - Flag `<iframe>` without `title`
+- [x] **CLI accessibility audits** → `lyra a11y-check` command
 - [ ] **Accessible starter templates** (semantic HTML, ARIA-ready)
 
 ### 3. Runtime / Compiler Improvements
 
 - [ ] Smarter **tree-shaking** → smaller bundles
-- [ ] Better **source maps** for debugging
+- [x] Better **source maps** for debugging
 - [ ] Stronger **TypeScript support** → types auto-generated
-- [ ] Optimize **reactivity engine** for performance
+- [x] Optimize **reactivity engine** for performance
 
 ### 4. Ecosystem Integration
 
@@ -48,8 +58,8 @@ Lyra’s mission is to improve **Developer Experience (DX)** while promoting **A
 
 ### 5. Quality & Security
 
-- [ ] Add lint, typecheck, unit tests in CI
-- [ ] Integrate accessibility testing in CI
+- [x] Add lint, typecheck, unit tests in CI
+- [x] Integrate accessibility testing in CI (`lyra a11y-check` + 8 compile-time rules)
 - [ ] Supply chain scanning (npm audit / Snyk)
 - [ ] SBOM + provenance metadata
 

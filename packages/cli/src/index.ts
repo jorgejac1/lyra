@@ -1,73 +1,89 @@
 #!/usr/bin/env node
 import fs from "node:fs";
-import { compile } from "@lyra-dev/compiler";
+import {
+  compile,
+  parseSourceFile,
+  runA11yChecks,
+  formatDiagnostic,
+  formatCodeFrame,
+} from "@lyra-dev/compiler";
 
-/**
- * Lyra CLI Entrypoint.
- *
- * This script compiles a `.lyra.tsx` file into a plain `.tsx` file using the Lyra compiler.
- * It validates input, reads the source file, invokes the compiler, writes the result,
- * and prints diagnostic information.
- *
- * Usage:
- * ```bash
- * lyra-compile <file.lyra.tsx>
- * ```
- *
- * @remarks
- * - Exits with status code `1` if no input file is provided.
- * - Writes the compiled output to the same path but with a `.tsx` extension.
- * - Prints diagnostics summary if there are warnings or errors.
- * - Always prints the output path when emitting succeeds.
- */
+const args = process.argv.slice(2);
+const subcommand = args[0];
 
-// The input filename provided by the CLI user.
-const file = process.argv[2];
-
-if (!file) {
-  console.error("Usage: lyra-compile <file.lyra.tsx>");
+function printUsage(): void {
+  console.error("Usage:");
+  console.error("  lyra compile <file.lyra.tsx> [out.tsx]");
+  console.error("  lyra a11y-check <file.lyra.tsx>");
   process.exit(1);
 }
 
-/**
- * Read the `.lyra.tsx` source file contents as UTF-8 text.
- */
-const src: string = fs.readFileSync(file, "utf8");
+function runCompile(file: string, outFile?: string): void {
+  const src: string = fs.readFileSync(file, "utf8");
 
-/**
- * Compile the Lyra source code to a plain `.tsx` file.
- */
-const result = compile({
-  filename: file,
-  source: src,
-  dev: false,
-  generateSourceMap: false,
-  a11yLevel: "strict",
-});
+  const result = compile({
+    filename: file,
+    source: src,
+    dev: false,
+    generateSourceMap: false,
+    a11yLevel: "strict",
+  });
 
-/**
- * Derive the output `.tsx` filename from the input path.
- */
-const outFile: string = file.replace(/\.lyra\.tsx$/, ".tsx");
+  const out: string = outFile ?? file.replace(/\.lyra\.tsx$/, ".tsx");
+  fs.writeFileSync(out, result.code);
 
-/**
- * Write the compiled code to the output file.
- */
-fs.writeFileSync(outFile, result.code);
+  if (result.diagnostics.length) {
+    const errors = result.diagnostics.filter(
+      (d) => d.severity === "error",
+    ).length;
+    console.log(
+      `Lyra: ${result.diagnostics.length} diagnostics (${errors} error${errors === 1 ? "" : "s"})`,
+    );
+  }
 
-/**
- * If diagnostics exist, log a summary (count of diagnostics and errors).
- */
-if (result.diagnostics.length) {
-  const errors = result.diagnostics.filter(
-    (d) => d.severity === "error",
-  ).length;
-  console.log(
-    `Lyra: ${result.diagnostics.length} diagnostics (${errors} error${errors === 1 ? "" : "s"})`,
-  );
+  console.log(`Emitted: ${out}`);
 }
 
-/**
- * Always log the emitted output file path.
- */
-console.log(`Emitted: ${outFile}`);
+function runA11yCheck(file: string): void {
+  const src: string = fs.readFileSync(file, "utf8");
+  const sf = parseSourceFile(file, src);
+  const diags = runA11yChecks(sf, file, "strict");
+
+  if (diags.length === 0) {
+    console.log("No accessibility issues found.");
+    process.exit(0);
+  }
+
+  for (const d of diags) {
+    console.log(formatDiagnostic(d, src));
+    if (d.start !== undefined && d.length !== undefined) {
+      console.log(formatCodeFrame(src, d.start, d.length));
+    }
+    console.log();
+  }
+
+  const errors = diags.filter((d) => d.severity === "error").length;
+  console.log(
+    `Found ${diags.length} issue(s) (${errors} error${errors === 1 ? "" : "s"}).`,
+  );
+  process.exit(errors > 0 ? 1 : 0);
+}
+
+// Route subcommands
+if (!subcommand) {
+  printUsage();
+} else if (subcommand === "compile") {
+  if (!args[1]) printUsage();
+  runCompile(args[1], args[2]);
+} else if (subcommand === "a11y-check") {
+  if (!args[1]) printUsage();
+  runA11yCheck(args[1]);
+} else if (
+  subcommand.endsWith(".lyra.tsx") ||
+  subcommand.endsWith(".lyra.ts")
+) {
+  // Backward compatibility: lyra <file.lyra.tsx>
+  runCompile(subcommand, args[1]);
+} else {
+  printUsage();
+}

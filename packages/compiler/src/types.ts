@@ -16,6 +16,8 @@ export type Diagnostic = {
   severity: "error" | "warn" | "info";
   /** Suggested fix or hint (optional). */
   hint?: string;
+  /** Link to documentation for this diagnostic. */
+  docUrl?: string;
 };
 
 /**
@@ -35,13 +37,24 @@ export type CompileOptions = {
 };
 
 /**
+ * V3 source map.
+ */
+export type SourceMap = {
+  version: 3;
+  file: string;
+  sources: string[];
+  sourcesContent: string[];
+  mappings: string;
+};
+
+/**
  * Result of compiling a module.
  */
 export type CompileResult = {
   /** Emitted code string. */
   code: string;
-  /** Source map (null until implemented). */
-  map?: unknown | null;
+  /** Source map (null when not requested). */
+  map?: SourceMap | null;
   /** Diagnostics generated during the compile. */
   diagnostics: Diagnostic[];
   /** Additional metadata. */

@@ -22,8 +22,35 @@ export type Signal<T> = {
   subscribe?: (fn: (v: T) => void) => Unsubscribe;
 };
 
+// Batching state
+let _batchDepth = 0;
+const _pendingEffects: Array<() => void> = [];
+
+/**
+ * Batch multiple signal updates so subscribers are notified only once
+ * after the outermost `batch()` call completes.
+ *
+ * Without `batch()`, behavior is unchanged (immediate notification).
+ *
+ * @param fn - Function containing signal updates to batch.
+ */
+export function batch(fn: () => void): void {
+  _batchDepth++;
+  try {
+    fn();
+  } finally {
+    _batchDepth--;
+    if (_batchDepth === 0) {
+      const effects = _pendingEffects.splice(0);
+      effects.forEach((f) => f());
+    }
+  }
+}
+
 /**
  * Create a new {@link Signal}.
+ *
+ * Uses `Object.is` equality to skip notifications when the value hasn't changed.
  *
  * @typeParam T - The type of the initial value.
  * @param initial - Initial value for the signal.
@@ -39,8 +66,13 @@ export function signal<T>(initial: T): Signal<T> {
       return _value;
     },
     set value(v: T) {
+      if (Object.is(_value, v)) return;
       _value = v;
-      listeners.forEach((fn) => fn(v));
+      if (_batchDepth > 0) {
+        listeners.forEach((fn) => _pendingEffects.push(() => fn(v)));
+      } else {
+        listeners.forEach((fn) => fn(v));
+      }
     },
     subscribe(fn: (v: T) => void): Unsubscribe {
       listeners.add(fn);
@@ -49,6 +81,57 @@ export function signal<T>(initial: T): Signal<T> {
   };
 
   return sig;
+}
+
+/**
+ * Create a derived signal that recomputes when any dependency changes.
+ *
+ * @typeParam T - The type of the computed value.
+ * @param fn - Function that computes the derived value.
+ * @param deps - Signals this computed value depends on.
+ * @returns A signal whose value updates when dependencies change.
+ */
+export function computed<T>(fn: () => T, deps: Signal<unknown>[]): Signal<T> {
+  const s = signal(fn());
+  for (const dep of deps) {
+    dep.subscribe?.(() => {
+      s.value = fn();
+    });
+  }
+  return s;
+}
+
+/**
+ * Run a side-effect function whenever any of its dependencies change.
+ *
+ * @param fn - Side-effect callback to execute. Receives no arguments.
+ * @param deps - Signals this effect depends on.
+ * @returns An {@link Unsubscribe} function that stops the effect.
+ */
+export function effect(fn: () => void, deps: Signal<unknown>[]): Unsubscribe {
+  const unsubs: Unsubscribe[] = [];
+  for (const dep of deps) {
+    const unsub = dep.subscribe?.(() => fn());
+    if (unsub) unsubs.push(unsub);
+  }
+  return () => unsubs.forEach((u) => u());
+}
+
+/**
+ * Keys that must not be looked up via bracket notation on an element
+ * to prevent prototype pollution.
+ */
+const UNSAFE_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+/**
+ * Safely read a named property from an element, rejecting unsafe keys.
+ */
+function safeGet(
+  el: HTMLElement & Record<string, unknown>,
+  key: string,
+): unknown {
+  if (UNSAFE_KEYS.has(key)) return undefined;
+  return Object.prototype.hasOwnProperty.call(el, key) ? el[key] : undefined;
 }
 
 /**
@@ -89,29 +172,40 @@ function isSignal(x: unknown): x is Signal<unknown> {
  * propagated by subscribing to the signal.
  *
  * @param root - Root DOM node whose subtree will be scanned and wired.
+ * @returns A cleanup function that removes all event listeners and signal subscriptions.
  */
-export function mount(root: HTMLElement): void {
+export function mount(root: HTMLElement): () => void {
   type DynEl = HTMLElement & Record<string, unknown>;
 
+  const cleanupFns: Array<() => void> = [];
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+
+  // Collect all elements first to avoid mutation-during-traversal issues
+  const elements: DynEl[] = [];
   do {
     const el = walker.currentNode as DynEl;
-    if (!el) continue;
+    if (el) elements.push(el);
+  } while (walker.nextNode());
 
+  for (const el of elements) {
     // Wire events and class toggles declared as attributes
     Array.from(el.attributes).forEach((attr) => {
       // data-on-<event> → addEventListener
       if (attr.name.startsWith("data-on-")) {
         const evt = attr.name.replace("data-on-", "");
         const handlerName = attr.value;
-        const fromEl = (el as DynEl)[handlerName];
-        const fromRoot = (root as DynEl)[handlerName];
+        const fromEl = safeGet(el, handlerName);
+        const fromRoot = safeGet(root as DynEl, handlerName);
         const candidate = (typeof fromEl === "function" ? fromEl : fromRoot) as
           | ((e: Event) => void)
           | undefined;
 
         if (candidate) {
           el.addEventListener(evt, candidate as EventListener);
+          // Store cleanup function
+          cleanupFns.push(() => {
+            el.removeEventListener(evt, candidate as EventListener);
+          });
         }
       }
 
@@ -119,7 +213,7 @@ export function mount(root: HTMLElement): void {
       if (attr.name.startsWith("data-class-")) {
         const cls = attr.name.replace("data-class-", "");
         const boundKey = attr.value;
-        const val = (el as DynEl)[boundKey];
+        const val = safeGet(el, boundKey);
         if (typeof val === "boolean") {
           if (val) el.classList.add(cls);
           else el.classList.remove(cls);
@@ -170,16 +264,25 @@ export function mount(root: HTMLElement): void {
     (["value", "checked", "disabled", "ariaLabel"] as const).forEach((prop) => {
       const boundKey = el.getAttribute(`data-${prop}`);
       if (!boundKey) return;
+      if (UNSAFE_KEYS.has(boundKey)) return;
       const maybeSignal = (el as DynEl)[boundKey];
       if (isSignal(maybeSignal)) {
         const s = maybeSignal as Signal<unknown>;
         // Initial apply
         setDomProp(prop, s.value);
         // Reactive updates
-        s.subscribe?.((nv) => {
+        const unsubscribe = s.subscribe?.((nv) => {
           setDomProp(prop, nv);
         });
+        if (unsubscribe) {
+          cleanupFns.push(unsubscribe);
+        }
       }
     });
-  } while (walker.nextNode());
+  }
+
+  // Return cleanup function that removes all listeners and subscriptions
+  return () => {
+    cleanupFns.forEach((fn) => fn());
+  };
 }

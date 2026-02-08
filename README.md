@@ -1,181 +1,187 @@
-# lyra-dev
+# Lyra
 
-[![CI](https://github.com/jorgejac1/lyra-dev/actions/workflows/ci.yml/badge.svg)](https://github.com/jorgejac1/lyra-dev/actions)
+[![CI](https://github.com/jorgejac1/lyra-dev/actions/workflows/test.yml/badge.svg)](https://github.com/jorgejac1/lyra-dev/actions)
 [![npm version](https://img.shields.io/npm/v/@lyra-dev/compiler.svg)](https://www.npmjs.com/package/@lyra-dev/compiler)
-[![Coverage](https://img.shields.io/codecov/c/github/jorgejac1/lyra-dev)](https://codecov.io/gh/jorgejac1/lyra-dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-> **lyra-dev** is a compile-time, a11y-first, signal-driven front-end framework.
+> A compile-time, a11y-first, signal-driven front-end framework.
 
 ---
 
-## ✨ Features
+## Features
 
-- ⚡ **Zero VDOM** — updates go directly to DOM nodes via signals for maximum speed.
-- ♿ **Accessibility-first** — compile-time errors if inputs, roles, or labels are missing.
-- 🎯 **Typed routes & loaders** — end-to-end type safety between client and server.
-- 🎨 **Atomic CSS emission** — minimal CSS, themeable with tokens.
-- 🧪 **First-class testing** — built-in a11y manifest, unit tests, and CI integration.
-- 🔌 **Vite plugin** — `.lyra-dev.tsx` files compile on the fly with hot reload.
-
----
-
-## 📦 Packages
-
-This monorepo includes:
-
-- **`@lyra-dev/compiler`** – TypeScript transformer for directives and a11y rules.
-- **`@lyra-dev/runtime`** – Signals, stores, and DOM binding logic.
-- **`@lyra-dev/vite-plugin`** – Integrates with Vite to compile `.lyra-dev.tsx` files.
-- **`@lyra-dev/cli`** – Command-line tool `lyra-dev-compile` for single-file transforms.
-- **`examples/todos`** – Example app using lyra-dev + Vite + Preact (demo scaffold).
+- **Zero VDOM** — signals update DOM nodes directly, no virtual DOM diffing.
+- **Accessibility-first** — 8 compile-time a11y rules catch missing labels, alt text, and more before your code ships.
+- **Signal-driven reactivity** — `signal()`, `computed()`, `batch()`, and `effect()` for fine-grained updates.
+- **Vite plugin** — `.lyra.tsx` files compile on the fly with hot reload and error overlay.
+- **CLI tooling** — `lyra compile` and `lyra a11y-check` for standalone builds and audits.
+- **Source maps** — V3 source map generation for accurate debugging.
+- **Zero runtime dependencies** — compiler and runtime have no external dependencies.
 
 ---
 
-## 🚀 Getting Started
+## Installation
 
-Clone the repo and install dependencies:
+```bash
+# Compiler + runtime + Vite plugin (typical setup)
+pnpm add @lyra-dev/compiler @lyra-dev/runtime @lyra-dev/vite-plugin
+
+# CLI (optional, for standalone compilation)
+pnpm add -D @lyra-dev/cli
+```
+
+---
+
+## Quick Start
+
+### 1. Configure Vite
+
+```ts
+// vite.config.ts
+import { defineConfig } from "vite";
+import lyra from "@lyra-dev/vite-plugin";
+
+export default defineConfig({
+  plugins: [lyra()],
+});
+```
+
+### 2. Write a Lyra component
+
+```tsx
+// src/counter.lyra.tsx
+import { signal, mount } from "@lyra-dev/runtime";
+
+const count = signal(0);
+
+export default function Counter() {
+  return (
+    <div>
+      <button on:click={() => count.value++} aria-label="Increment">
+        Count: {count.value}
+      </button>
+      <img src="/logo.png" alt="App logo" />
+    </div>
+  );
+}
+```
+
+The compiler transforms `on:click` into `data-on-click` and enforces that `<button>` has an accessible label and `<img>` has `alt` text — all at compile time.
+
+### 3. Run
+
+```bash
+pnpm vite dev
+```
+
+---
+
+## Packages
+
+| Package                                            | Description                                                   | Docs                                       |
+| -------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------ |
+| [`@lyra-dev/compiler`](./packages/compiler/)       | TypeScript transformer for directives and a11y rules          | [README](./packages/compiler/README.md)    |
+| [`@lyra-dev/runtime`](./packages/runtime/)         | Signals, computed values, batching, effects, and DOM mounting | [README](./packages/runtime/README.md)     |
+| [`@lyra-dev/vite-plugin`](./packages/vite-plugin/) | Vite integration with hot reload and error overlay            | [README](./packages/vite-plugin/README.md) |
+| [`@lyra-dev/cli`](./packages/cli/)                 | CLI for `lyra compile` and `lyra a11y-check`                  | [README](./packages/cli/README.md)         |
+
+---
+
+## Directives
+
+Lyra uses JSX directives that the compiler transforms into `data-*` attributes:
+
+| Directive                  | Compiled output     | Purpose                  |
+| -------------------------- | ------------------- | ------------------------ |
+| `on:<event>={handler}`     | `data-on-<event>`   | Event binding            |
+| `class:<name>={condition}` | `data-class-<name>` | Conditional class toggle |
+
+---
+
+## A11y Rules
+
+The compiler enforces 8 accessibility rules at compile time:
+
+| Code            | Rule                                                   |
+| --------------- | ------------------------------------------------------ |
+| `LYRA_A11Y_001` | Interactive controls must have an accessible name      |
+| `LYRA_A11Y_002` | `<img>` must have an `alt` attribute                   |
+| `LYRA_A11Y_003` | `<button>` must have visible text or accessible label  |
+| `LYRA_A11Y_004` | Form controls with `id` must have a matching `<label>` |
+| `LYRA_A11Y_005` | `<a>` must have an `href` attribute                    |
+| `LYRA_A11Y_006` | `tabindex` must not be greater than 0                  |
+| `LYRA_A11Y_007` | Headings (`<h1>`-`<h6>`) must not be empty             |
+| `LYRA_A11Y_008` | `<iframe>` must have a `title` attribute               |
+
+See [docs/a11y.md](./docs/a11y.md) for full details with pass/fail examples and WCAG references.
+
+---
+
+## CLI
+
+```bash
+# Compile a single file
+lyra compile src/app.lyra.tsx
+
+# Compile with custom output path
+lyra compile src/app.lyra.tsx dist/app.tsx
+
+# Run accessibility checks only
+lyra a11y-check src/app.lyra.tsx
+```
+
+See the [CLI README](./packages/cli/README.md) for details.
+
+---
+
+## Documentation
+
+- [Architecture](./docs/architecture.md) — how the compiler pipeline works
+- [Compiler](./docs/compiler.md) — `CompileOptions`, diagnostics, source maps
+- [Accessibility Rules](./docs/a11y.md) — all 8 rules with WCAG references
+- [Roadmap](./docs/roadmap.md) — planned features
+
+---
+
+## Comparisons
+
+| Feature       | **Lyra**                     | React           | Svelte       | SolidJS        |
+| ------------- | ---------------------------- | --------------- | ------------ | -------------- |
+| Rendering     | Signals to DOM (no VDOM)     | VDOM diff       | Compile-time | Signals to DOM |
+| Accessibility | **Enforced at compile time** | Optional (lint) | Optional     | Optional       |
+| Bundle Size   | Small by default             | Larger          | Small        | Small          |
+| DX Speed      | Fast (Vite + signals)        | Medium          | Fast         | Very fast      |
+
+---
+
+## Development
 
 ```bash
 git clone https://github.com/jorgejac1/lyra-dev.git
 cd lyra-dev
-npm install
+pnpm install
+
+# Run tests
+pnpm test
+
+# Lint
+pnpm run lint
+
+# Type check
+pnpm run typecheck
+
+# Build all packages
+pnpm run build
 ```
 
-### Run the example app
+---
 
-```bash
-cd examples/todos
-npm run dev
-```
+## Contributing
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions and guidelines.
 
 ---
 
-## 🔍 Usage Scenarios
+## License
 
-### 1. Accessible Components by Default
-
-```tsx
-// ❌ Compile-time error (missing alt attribute)
-<img src="/logo.png" />
-
-// ✅ Compiles (alt attribute included)
-<img src="/logo.png" alt="Lyra logo" />
-```
-
-👉 **Benefit:** Developers can’t accidentally ship inaccessible UIs — Lyra enforces best practices at compile time.
-
----
-
-### 2. Reactive State without VDOM
-
-```tsx
-import { signal } from "@lyra-dev/runtime";
-
-const count = signal(0);
-
-<button onclick={() => count.value++}>Count: {count}</button>;
-```
-
-👉 **How it works:** Signals update DOM nodes directly, no virtual DOM diffing.  
-👉 **Benefit:** Faster updates, less runtime overhead.
-
----
-
-### 3. Typed Routes & Loaders
-
-```tsx
-// loader.ts
-export const loader = async () => {
-  return { message: "Hello from server!" };
-};
-
-// page.tsx
-const { message } = useLoader<typeof loader>();
-```
-
-👉 **Benefit:** End-to-end type safety between server and client, preventing runtime mismatches.
-
----
-
-### 4. Atomic CSS Emission
-
-```tsx
-<div class="p-4 text-lg font-bold">Hello, world!</div>
-```
-
-👉 **Benefit:** Only the minimal CSS needed is emitted → smaller bundles and consistent theming with tokens.
-
----
-
-## 📊 Comparisons
-
-| Feature / Framework     | **Lyra**                      | React                      | Svelte               | SolidJS       |
-| ----------------------- | ----------------------------- | -------------------------- | -------------------- | ------------- |
-| Rendering Model         | Signals → DOM (no VDOM)       | VDOM diff                  | Compile-time updates | Signals → DOM |
-| Accessibility           | **Enforced at compile time**  | Optional (runtime lint)    | Optional             | Optional      |
-| Type Safety             | **Built-in loaders & routes** | External libs (tRPC, etc.) | Limited              | Manual        |
-| CSS Handling            | **Atomic CSS emission**       | CSS-in-JS / external       | Scoped CSS           | External      |
-| DX Speed (build/reload) | **Fast (Vite + signals)**     | Medium                     | Fast                 | Very fast     |
-| Learning Curve          | Low (TSX + rules)             | Widely known               | Medium               | Medium        |
-| Bundle Size             | **Small by default**          | Larger                     | Small                | Small         |
-
-**Key takeaway:** Lyra blends Svelte’s compile-time optimizations with Solid’s signals, but uniquely **enforces accessibility at compile time**, making the _right thing_ the easy thing.
-
----
-
-## 🛠 Development Workflow
-
-- Branch from `main`.
-- Use **clear commit messages** (`feat:`, `fix:`, `docs:`, etc.).
-- Make sure your code is linted and formatted:
-
-  ```bash
-  npm run lint
-  npm run lint:fix
-  ```
-
-- Add or update **unit tests** when fixing or adding features.
-- Run the test suite with coverage:
-
-  ```bash
-  npm run test
-  ```
-
----
-
-## 🤝 Contributing
-
-Please see our [Contributing Guide](./CONTRIBUTING.md) for setup instructions, coding standards, and how to submit pull requests.
-
-All contributions are welcome: bug reports, feature requests, documentation, or code.
-
----
-
-## 📖 Reporting Issues
-
-- Use the GitHub **Issues** tab.
-- Provide clear reproduction steps, expected behavior, and actual behavior.
-
----
-
-## 🧑‍🤝‍🧑 Code of Conduct
-
-We follow the [Contributor Covenant](./CODE_OF_CONDUCT.md).  
-By participating in this project, you agree to uphold it.
-
----
-
-## 📜 License
-
-This project is licensed under the [MIT License](./LICENSE).
-
----
-
-## 🌟 Acknowledgements
-
-Lyra is inspired by ideas from **React**, **SolidJS**, and **Svelte** but takes a unique approach by enforcing **accessibility at compile-time** and shipping less code to the client.
-
----
+[MIT](./LICENSE)
