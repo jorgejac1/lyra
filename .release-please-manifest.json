@@ -1,6 +1,6 @@
 {
   "packages/compiler": "1.0.0",
-  "packages/runtime": "1.0.0",
+  "packages/runtime": "1.1.0",
   "packages/vite-plugin": "1.0.2",
   "packages/cli": "1.0.0"
 }
