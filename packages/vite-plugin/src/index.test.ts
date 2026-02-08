@@ -97,14 +97,12 @@ describe("vite plugin", () => {
               code: "LYRA_W",
               message: "a warning",
               file: "f.tsx",
-              filename: "f.tsx",
               severity: "warn" as const,
             },
             {
               code: "LYRA_E",
               message: "an error",
               file: "g.tsx",
-              filename: "g.tsx",
               severity: "error" as const,
             },
           ],
@@ -153,7 +151,7 @@ describe("vite plugin", () => {
     vi.doUnmock("@lyra-dev/compiler");
   });
 
-  it("transforms .lyra.ts (not .tsx), preserves map, and exposes wrapper exports", async () => {
+  it("does not add wrapper for code without runtime features", async () => {
     vi.resetModules();
 
     vi.doMock("@lyra-dev/compiler", () => {
@@ -187,11 +185,54 @@ describe("vite plugin", () => {
       true,
     );
     if (res && typeof res !== "string") {
+      // Code doesn't use runtime features, so no wrapper
+      expect(res.code).toBe("export default 123;");
+      expect(res.code).not.toContain("import { mount, signal }");
+      expect(res.map).toEqual({ mappings: "" });
+    }
+
+    vi.doUnmock("@lyra-dev/compiler");
+  });
+
+  it("adds wrapper when code uses signals", async () => {
+    vi.resetModules();
+
+    vi.doMock("@lyra-dev/compiler", () => {
+      return {
+        compile: vi.fn(() => ({
+          code: "const count = signal(0); export default count;",
+          map: null,
+          diagnostics: [],
+          meta: {
+            symbols: [],
+            islands: false,
+            a11yErrors: 0,
+            transformed: true,
+          },
+        })),
+      };
+    });
+
+    const mockedPlugin: () => Plugin = (await import("./index")).default;
+    const p = mockedPlugin();
+
+    const ctx: Ctx = { warn: () => {}, error: () => {} };
+    const transform = p.transform as TransformFn;
+    const res = await (transform as Exclude<TransformFn, undefined>).call(
+      ctx,
+      "const count = signal(0);",
+      "test.lyra.tsx",
+    );
+
+    expect(res && typeof res !== "string" && typeof res.code === "string").toBe(
+      true,
+    );
+    if (res && typeof res !== "string") {
+      // Code uses 'signal', so wrapper should be added
       expect(res.code).toContain(
         `import { mount, signal } from '@lyra-dev/runtime'`,
       );
       expect(res.code).toContain(`export { mount, signal }`);
-      expect(res.map).toEqual({ mappings: "" });
     }
 
     vi.doUnmock("@lyra-dev/compiler");
@@ -229,7 +270,7 @@ describe("vite plugin", () => {
     vi.doUnmock("@lyra-dev/compiler");
   });
 
-  it("uses `file` when `filename` is missing and omits code prefix", async () => {
+  it("uses `file` when available and formats position correctly", async () => {
     vi.resetModules();
 
     vi.doMock("@lyra-dev/compiler", () => ({
@@ -265,7 +306,7 @@ describe("vite plugin", () => {
     vi.doUnmock("@lyra-dev/compiler");
   });
 
-  it("covers info severity, code prefix/no-code, line/col, and fallback to id", async () => {
+  it("covers info severity, code prefix/no-code, position, and fallback to id", async () => {
     vi.resetModules();
 
     vi.doMock("@lyra-dev/compiler", () => ({
@@ -277,23 +318,25 @@ describe("vite plugin", () => {
             code: "INFO_001",
             message: "info with code and position",
             severity: "info" as const,
-            filename: "test.tsx",
-            start: { line: 10, column: 5 },
+            file: "test.tsx",
+            start: 100,
+            length: 10,
           },
           {
             message: "info without code but with position",
             severity: "info" as const,
             file: "other.tsx",
-            start: { line: 2, column: 1 },
+            start: 50,
+            length: 5,
           },
           {
             code: "WARN_002",
             message: "warn with code",
             severity: "warn" as const,
-            filename: "warn.tsx",
+            file: "warn.tsx",
           },
           {
-            message: "diagnostic with no filename or file",
+            message: "diagnostic with no file",
             severity: "warn" as const,
           },
         ],
@@ -320,15 +363,16 @@ describe("vite plugin", () => {
     expect(res && typeof res.code === "string").toBe(true);
 
     expect(warns).toHaveLength(4);
+    // Position format is :start+length
     expect(warns[0]).toContain(
-      "LYRA_I INFO_001: info with code and position (in test.tsx:10:5)",
+      "LYRA_I INFO_001: info with code and position (in test.tsx:100+10)",
     );
     expect(warns[1]).toContain(
-      "LYRA_I: info without code but with position (in other.tsx:2:1)",
+      "LYRA_I: info without code but with position (in other.tsx:50+5)",
     );
     expect(warns[2]).toContain("LYRA_W WARN_002: warn with code (in warn.tsx)");
     expect(warns[3]).toContain(
-      "LYRA_W: diagnostic with no filename or file (in test.lyra.tsx)",
+      "LYRA_W: diagnostic with no file (in test.lyra.tsx)",
     );
 
     vi.doUnmock("@lyra-dev/compiler");
@@ -405,5 +449,302 @@ describe("vite plugin • configResolved extensions", () => {
         ".lyra.ts",
       ]),
     );
+  });
+
+  it("throws error when compiler returns invalid result", async () => {
+    vi.resetModules();
+
+    vi.doMock("@lyra-dev/compiler", () => ({
+      compile: vi.fn(() => ({
+        code: 123, // Invalid: code should be a string
+        map: null,
+        diagnostics: [],
+        meta: { symbols: [], islands: false, a11yErrors: 0, transformed: true },
+      })),
+    }));
+
+    const mockedPlugin: () => Plugin = (await import("./index")).default;
+    const p = mockedPlugin();
+
+    const errors: string[] = [];
+    const ctx: Ctx = {
+      warn: () => {},
+      error: (msg: string) => {
+        errors.push(msg);
+      },
+    };
+
+    const transform = p.transform as TransformFn;
+    await (transform as Exclude<TransformFn, undefined>).call(
+      ctx,
+      "export default 123",
+      "test.lyra.tsx",
+    );
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toBe("Lyra compilation failed: no code returned");
+
+    vi.doUnmock("@lyra-dev/compiler");
+  });
+});
+
+describe("vite plugin • buildStart runtime detection", () => {
+  it("does not warn when @lyra-dev/runtime is available (workspace)", async () => {
+    const p: Plugin = plugin();
+
+    const warns: string[] = [];
+    const hook = p.buildStart;
+
+    if (typeof hook === "function") {
+      await (hook as (this: { warn(m: string): void }) => Promise<void>).call({
+        warn: (msg: string) => warns.push(msg),
+      });
+    }
+
+    expect(warns).toHaveLength(0);
+  });
+
+  it("warns when @lyra-dev/runtime is not installed", async () => {
+    vi.resetModules();
+
+    // Mock runtime to throw (simulates it not being installed)
+    vi.doMock("@lyra-dev/runtime", () => {
+      throw new Error("MODULE_NOT_FOUND");
+    });
+
+    vi.doMock("@lyra-dev/compiler", () => ({
+      compile: vi.fn(),
+      offsetToLineColumn: vi.fn(),
+    }));
+
+    const mockedPlugin: () => Plugin = (await import("./index")).default;
+    const p = mockedPlugin();
+
+    const warns: string[] = [];
+    const hook = p.buildStart;
+
+    if (typeof hook === "function") {
+      await (hook as (this: { warn(m: string): void }) => Promise<void>).call({
+        warn: (msg: string) => warns.push(msg),
+      });
+    }
+
+    expect(warns).toHaveLength(1);
+    expect(warns[0]).toContain("@lyra-dev/runtime is not installed");
+
+    vi.doUnmock("@lyra-dev/runtime");
+    vi.doUnmock("@lyra-dev/compiler");
+  });
+});
+
+describe("vite plugin • invalid import detection", () => {
+  it("warns on invalid @lyra-dev/* imports", async () => {
+    vi.resetModules();
+
+    vi.doMock("@lyra-dev/compiler", () => ({
+      compile: vi.fn(() => ({
+        code: "export default 0;",
+        map: null,
+        diagnostics: [],
+        meta: { symbols: [], islands: false, a11yErrors: 0, transformed: true },
+      })),
+      offsetToLineColumn: vi.fn(() => ({ line: 1, column: 1 })),
+    }));
+
+    const mockedPlugin: () => Plugin = (await import("./index")).default;
+    const p = mockedPlugin();
+
+    const warns: string[] = [];
+    const ctx: Ctx = {
+      warn: (msg: string) => warns.push(msg),
+      error: () => {},
+    };
+
+    const transform = p.transform as TransformFn;
+    await (transform as Exclude<TransformFn, undefined>).call(
+      ctx,
+      'import { foo } from "@lyra-dev/nonexistent";',
+      "test.lyra.tsx",
+    );
+
+    expect(warns.some((w) => w.includes("Unknown Lyra package import"))).toBe(
+      true,
+    );
+
+    vi.doUnmock("@lyra-dev/compiler");
+  });
+});
+
+describe("vite plugin • plugin options", () => {
+  it("passes a11yLevel option to compiler", async () => {
+    vi.resetModules();
+
+    const compileSpy = vi.fn(() => ({
+      code: "export default 0;",
+      map: null,
+      diagnostics: [],
+      meta: { symbols: [], islands: false, a11yErrors: 0, transformed: true },
+    }));
+
+    vi.doMock("@lyra-dev/compiler", () => ({
+      compile: compileSpy,
+      offsetToLineColumn: vi.fn(() => ({ line: 1, column: 1 })),
+    }));
+
+    const mockedPlugin = (await import("./index")).default;
+    const p = mockedPlugin({ a11yLevel: "off" });
+
+    const ctx: Ctx = { warn: () => {}, error: () => {} };
+    const transform = p.transform as TransformFn;
+    await (transform as Exclude<TransformFn, undefined>).call(
+      ctx,
+      "export default 0",
+      "test.lyra.tsx",
+    );
+
+    expect(compileSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ a11yLevel: "off" }),
+    );
+
+    vi.doUnmock("@lyra-dev/compiler");
+  });
+
+  it("provides structured error with loc for error diagnostics with position", async () => {
+    vi.resetModules();
+
+    vi.doMock("@lyra-dev/compiler", () => ({
+      compile: vi.fn(() => ({
+        code: "export default 0;",
+        map: null,
+        diagnostics: [
+          {
+            code: "LYRA_A11Y_001",
+            message: "an error with position",
+            file: "test.tsx",
+            severity: "error" as const,
+            start: 10,
+            length: 5,
+          },
+        ],
+        meta: { symbols: [], islands: false, a11yErrors: 1, transformed: true },
+      })),
+      offsetToLineColumn: vi.fn(() => ({ line: 2, column: 5 })),
+    }));
+
+    const mockedPlugin: () => Plugin = (await import("./index")).default;
+    const p = mockedPlugin();
+
+    const errors: unknown[] = [];
+    const ctx: Ctx = {
+      warn: () => {},
+      error: ((msg: unknown) => {
+        errors.push(msg);
+      }) as Ctx["error"],
+    };
+
+    const transform = p.transform as TransformFn;
+    await (transform as Exclude<TransformFn, undefined>).call(
+      ctx,
+      "export default 0",
+      "test.lyra.tsx",
+    );
+
+    expect(errors).toHaveLength(1);
+    // The error should be an Error object with loc property
+    const err = errors[0] as Error & {
+      loc?: { line: number; column: number };
+    };
+    expect(err).toBeInstanceOf(Error);
+    expect(err.loc).toEqual({ line: 2, column: 5 });
+
+    vi.doUnmock("@lyra-dev/compiler");
+  });
+
+  it("falls back to transform id when error diagnostic has no file", async () => {
+    vi.resetModules();
+
+    vi.doMock("@lyra-dev/compiler", () => ({
+      compile: vi.fn(() => ({
+        code: "export default 0;",
+        map: null,
+        diagnostics: [
+          {
+            code: "LYRA_ERR",
+            message: "error without file",
+            severity: "error" as const,
+            start: 5,
+            length: 3,
+          },
+        ],
+        meta: { symbols: [], islands: false, a11yErrors: 1, transformed: true },
+      })),
+      offsetToLineColumn: vi.fn(() => ({ line: 1, column: 6 })),
+    }));
+
+    const mockedPlugin: () => Plugin = (await import("./index")).default;
+    const p = mockedPlugin();
+
+    const errors: unknown[] = [];
+    const ctx: Ctx = {
+      warn: () => {},
+      error: ((msg: unknown) => {
+        errors.push(msg);
+      }) as Ctx["error"],
+    };
+
+    const transform = p.transform as TransformFn;
+    await (transform as Exclude<TransformFn, undefined>).call(
+      ctx,
+      "export default 0",
+      "fallback-id.lyra.tsx",
+    );
+
+    expect(errors).toHaveLength(1);
+    const err = errors[0] as Error & { id?: string };
+    expect(err).toBeInstanceOf(Error);
+    // Falls back to the transform id when d.file is undefined
+    expect(err.id).toBe("fallback-id.lyra.tsx");
+
+    vi.doUnmock("@lyra-dev/compiler");
+  });
+
+  it("excludes files matching exclude pattern", async () => {
+    const p: Plugin = plugin({ exclude: /node_modules/ });
+
+    const ctx: Ctx = {
+      error: () => {
+        throw new Error("should not be called");
+      },
+      warn: () => {},
+    };
+
+    const transform = p.transform as TransformFn;
+    const res = await (transform as Exclude<TransformFn, undefined>).call(
+      ctx,
+      "const a=1;",
+      "node_modules/pkg/file.lyra.tsx",
+    );
+
+    expect(res).toBeNull();
+  });
+
+  it("excludes files not matching include pattern", async () => {
+    const p: Plugin = plugin({ include: ["src/"], exclude: undefined });
+
+    const ctx: Ctx = {
+      error: () => {
+        throw new Error("should not be called");
+      },
+      warn: () => {},
+    };
+
+    const transform = p.transform as TransformFn;
+    const res = await (transform as Exclude<TransformFn, undefined>).call(
+      ctx,
+      "const a=1;",
+      "lib/other.lyra.tsx",
+    );
+
+    expect(res).toBeNull();
   });
 });

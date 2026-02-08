@@ -1,5 +1,8 @@
 import { defineConfig } from "vitest/config";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   test: {
@@ -11,7 +14,18 @@ export default defineConfig({
       reportsDirectory: "./coverage",
       all: true,
       include: ["packages/**/*.ts"],
-      exclude: ["**/*.test.ts", "**/dist/**"],
+      exclude: [
+        "**/*.test.ts",
+        "**/dist/**",
+        "**/__release-trigger.ts",
+        "**/types.ts",
+      ],
+      thresholds: {
+        lines: 100,
+        functions: 100,
+        branches: 100,
+        statements: 100,
+      },
     },
   },
   resolve: {

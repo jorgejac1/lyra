@@ -35,5 +35,8 @@ Thumbs.db
 *.swp
 *.swo
 
+# Claude Code
+.claude/
+
 # Package managers
 .pnpm-debug.log

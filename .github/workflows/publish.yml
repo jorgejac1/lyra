@@ -2,8 +2,8 @@ name: Publish
 
 on:
   release:
-    types: [published] # auto publish on GitHub Release
-  workflow_dispatch: # manual publish (pick package + version)
+    types: [published]
+  workflow_dispatch:
     inputs:
       component:
         description: "Package to publish"
@@ -19,6 +19,10 @@ on:
         description: "Version to publish (e.g. 1.0.3). Used only for manual runs."
         required: true
         type: string
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -37,35 +41,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Debug ref
-        run: |
-          echo "event: $GITHUB_EVENT_NAME"
-          echo "ref:   $GITHUB_REF"
-          echo "sha:   $GITHUB_SHA"
-          git rev-parse HEAD
-          git tag --points-at HEAD || true
-
-      # Node + pnpm via Corepack
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: https://registry.npmjs.org
 
       - name: Enable Corepack & activate pnpm
         run: |
-          set -euxo pipefail
           corepack enable
-          corepack prepare pnpm@9 --activate
-          which pnpm
-          pnpm --version
+          corepack prepare pnpm@10 --activate
 
-      # pnpm cache
       - name: Get pnpm store directory
         run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
       - name: Setup pnpm cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ env.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
@@ -75,14 +66,12 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
-      # Build ONLY the publishable workspace packages
-      - name: Build packages (workspace)
+      - name: Build packages
         run: pnpm -r -F "@lyra-dev/*" build
 
-      # Auth (write to config npm actually uses on Actions)
       - name: Set npm token & verify auth
         run: |
-          set -euxo pipefail
+          set -euo pipefail
           test -n "${NPM_TOKEN}"
 
           CFG="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
@@ -92,14 +81,9 @@ jobs:
             echo "always-auth=true"
           } > "$CFG"
 
-          npm config get registry
-          npm config get @lyra-dev:registry
           npm whoami || true
           npm ping
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # Determine component & version
       - name: Determine component & version from event
         id: info
         shell: bash
@@ -112,7 +96,6 @@ jobs:
             if [[ -z "${COMP}" || -z "${VER}" ]]; then
               echo "Missing component/version inputs"; exit 1
             fi
-            # basic semver sanity (allows prereleases/build metadata)
             if ! [[ "$VER" =~ ^[0-9]+\.[0-9]+\.[0-9]+([0-9A-Za-z\.\-\+]*)?$ ]]; then
               echo "Invalid version: $VER"; exit 1
             fi

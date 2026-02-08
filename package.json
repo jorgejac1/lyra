@@ -22,12 +22,6 @@
     "dev": "pnpm --filter lyra-todos-example dev",
     "prepare": "husky"
   },
-  "pnpm": {
-    "overrides": {
-      "vite": "5.4.20",
-      "@types/node": "22.18.6"
-    }
-  },
   "lint-staged": {
     "packages/**/*.{ts,tsx}": [
       "eslint --fix --max-warnings=0"
@@ -36,22 +30,22 @@
     "*.{md,json,yml,yaml}": "prettier --write"
   },
   "devDependencies": {
-    "@eslint/js": "^9.35.0",
-    "@types/node": "22.18.6",
-    "@vitest/coverage-v8": "^2.1.9",
-    "eslint": "^9.35.0",
-    "eslint-plugin-prettier": "^5.5.4",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "25.2.2",
+    "@vitest/coverage-v8": "^4.0.18",
+    "eslint": "^10.0.0",
+    "eslint-plugin-prettier": "^5.5.5",
     "husky": "^9.1.7",
-    "jsdom": "^27.0.0",
-    "lint-staged": "^16.1.6",
-    "prettier": "^3.6.2",
-    "rimraf": "^6.0.1",
-    "typescript": "^5.6.3",
-    "typescript-eslint": "^8.43.0",
-    "vite": "5.4.20",
-    "vitest": "^2.0.5"
+    "jsdom": "^28.0.0",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.8.1",
+    "rimraf": "^6.1.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.54.0",
+    "vite": "7.3.1",
+    "vitest": "^4.0.18"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   }
 }

@@ -1,4 +1,5 @@
 import ts from "typescript";
+import type { Diagnostic } from "../types.js";
 
 /**
  * Transform Lyra JSX directives into `data-*` attributes for runtime wiring.
@@ -7,13 +8,18 @@ import ts from "typescript";
  * - `on:click={fn}`   → `data-on-click={fn}`
  * - `class:done={x}`  → `data-class-done={x}`
  *
+ * Validates that directive values are JsxExpressions (not string literals).
+ * Returns diagnostics for invalid directive usage instead of using console.warn.
+ *
  * @param sf - Source file to transform.
  * @param ctx - TypeScript transformation context.
- * @returns A new {@link ts.SourceFile} with attributes rewritten.
+ * @param filename - File name for diagnostic reporting.
+ * @returns The transformed source file and any diagnostics.
  */
 export function transformReactivity(
   sf: ts.SourceFile,
   ctx: ts.TransformationContext,
+  filename?: string,
 ): ts.SourceFile {
   const factory = ctx.factory;
 
@@ -30,6 +36,21 @@ export function transformReactivity(
         }
         const name = prop.name.getText();
         const init = prop.initializer;
+
+        // Validate that directives use expressions, not string literals
+        if ((name.startsWith("on:") || name.startsWith("class:")) && init) {
+          if (ts.isStringLiteral(init)) {
+            _diagnostics.push({
+              code: "LYRA_DIRECTIVE_STRING",
+              message: `Directive "${name}" should use an expression {value}, not a string literal "${init.text}". This will not work at runtime.`,
+              file: filename ?? sf.fileName,
+              start: prop.getStart(),
+              length: prop.getWidth(),
+              severity: "warn",
+              hint: `Change ${name}="${init.text}" to ${name}={${init.text}}.`,
+            });
+          }
+        }
 
         // on:event → data-on-event
         if (name.startsWith("on:")) {
@@ -80,5 +101,10 @@ export function transformReactivity(
     return ts.visitEachChild(node, visit, ctx);
   };
 
-  return ts.visitEachChild(sf, visit, ctx);
+  const _diagnostics: Diagnostic[] = [];
+  const result = ts.visitEachChild(sf, visit, ctx);
+  // Attach diagnostics to the source file for retrieval by the compiler
+  (result as unknown as { _lyra_diags?: Diagnostic[] })._lyra_diags =
+    _diagnostics;
+  return result;
 }

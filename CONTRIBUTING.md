@@ -1,30 +1,34 @@
 # Contributing to Lyra
 
-🎉 Thanks for your interest in contributing! Contributions are welcome whether they are bug reports, feature requests, documentation improvements, or code changes.
+Thanks for your interest in contributing! Contributions are welcome whether they are bug reports, feature requests, documentation improvements, or code changes.
 
 ## Getting Started
 
 1. Fork the repository and clone it locally.
 2. Install dependencies:
    ```bash
-   npm install
+   pnpm install
+   ```
 3. Run tests to ensure everything is green:
    ```bash
-   npm test
+   pnpm test
+   ```
 
 ## Development Workflow
 
 - Branch from `main`.
 - Use **clear commit messages** (`feat:`, `fix:`, `docs:`, etc.).
-- Make sure your code is linted and formatted:
+- Make sure your code is linted, formatted, and type-checked:
   ```bash
-  npm run lint
-  npm run lint:fix
-
+  pnpm run lint
+  pnpm run lint:fix
+  pnpm run typecheck
+  ```
 - Add or update **unit tests** when fixing or adding features.
 - Run the test suite with coverage:
   ```bash
-  npm run test
+  pnpm test
+  ```
 
 ## Pull Requests
 
