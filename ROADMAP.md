@@ -16,6 +16,9 @@ Lyra’s mission is to improve **Developer Experience (DX)** while promoting **A
 - Transform diagnostics (`LYRA_DIRECTIVE_STRING`)
 - Vite plugin options (`LyraPluginOptions` with include/exclude/a11yLevel)
 - Package metadata improvements (`sideEffects`, `files`, `engines`, `peerDependencies`)
+- Comprehensive documentation: root README rewrite, per-package READMEs, CONTRIBUTING guide
+- 100% test coverage (statements, branches, functions, lines) — 157 tests
+- Performance optimizations: regex caching in vite-plugin, consolidated a11y visitor
 
 ---
 
@@ -60,14 +63,14 @@ Lyra’s mission is to improve **Developer Experience (DX)** while promoting **A
 
 - [x] Add lint, typecheck, unit tests in CI
 - [x] Integrate accessibility testing in CI (`lyra a11y-check` + 8 compile-time rules)
-- [ ] Supply chain scanning (npm audit / Snyk)
-- [ ] SBOM + provenance metadata
+- [x] Supply chain scanning (`pnpm audit --prod` in CI)
+- [x] SBOM + provenance metadata (`--provenance` flag in publish workflow)
 
 ### 6. Docs & Community
 
-- [ ] **Getting Started** guide
+- [x] **Getting Started** guide (root README Quick Start + per-package READMEs)
 - [ ] **Recipes/examples** (TodoMVC, blog starter)
-- [ ] CONTRIBUTING.md with local dev guide
+- [x] CONTRIBUTING.md with local dev guide
 - [ ] Open discussions board or Discord
 
 ---
